@@ -734,7 +734,7 @@ function emailImage(src: string, alt: string, width: number, height: number) {
 }
 
 function heroEmailImage(src: string, alt: string) {
-  return `<img src="${escapeAttribute(src)}" alt="${escapeAttribute(alt)}" width="656" height="260" style="display:block;width:100%;max-width:656px;height:260px;border:0;border-radius:8px;margin:0;padding:0;">`;
+  return `<img src="${escapeAttribute(src)}" alt="${escapeAttribute(alt)}" width="656" style="display:block;width:100%;max-width:656px;height:auto;border:0;border-radius:8px;margin:0;padding:0;">`;
 }
 
 function escapeHtml(value: string) {
