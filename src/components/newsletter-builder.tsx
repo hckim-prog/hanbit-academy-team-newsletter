@@ -4,7 +4,6 @@ import {
   ArrowDownToLine,
   CheckCircle2,
   Copy,
-  FileText,
   Image as ImageIcon,
   Loader2,
   Mail,
@@ -42,7 +41,6 @@ export function NewsletterBuilder() {
   const [sendConfirmed, setSendConfirmed] = useState(false);
   const [gmailStatus, setGmailStatus] = useState<GmailStatus | null>(null);
   const [emailPreviewHtml, setEmailPreviewHtml] = useState("");
-  const previewRef = useRef<HTMLElement>(null);
   const editedNewsletterRef = useRef<Newsletter | null>(null);
 
   function setUiStatus(message: string, kind: keyof typeof statusTone = "idle") {
@@ -99,7 +97,7 @@ export function NewsletterBuilder() {
       editedNewsletterRef.current = payload.newsletter;
       setSubject(payload.newsletter.subject);
       window.setTimeout(updateEmailPreview, 50);
-      setUiStatus("초안을 만들었습니다. 미리보기 본문을 눌러 바로 수정할 수 있어요.", "done");
+      setUiStatus("초안을 만들었습니다. 가운데 발송본 미리보기에서 실제 Gmail 형태를 확인해 주세요.", "done");
     } catch (error) {
       setUiStatus(error instanceof Error ? error.message : "오류가 발생했습니다.", "error");
     } finally {
@@ -252,40 +250,12 @@ export function NewsletterBuilder() {
       throw new Error("뉴스레터가 없습니다.");
     }
 
-    const root = previewRef.current;
-    if (!root) {
-      return editedNewsletterRef.current ?? newsletter;
-    }
-
-    const edited: Newsletter = {
-      ...newsletter,
-      heroTitle: textFrom(root, "[data-email-field='heroTitle']") || newsletter.heroTitle,
-      sections: newsletter.sections.map((section) => {
-        const sectionRoot = root.querySelector(`[data-section-id="${section.id}"]`);
-        if (!sectionRoot) {
-          return section;
-        }
-
-        const body = Array.from(sectionRoot.querySelectorAll<HTMLElement>("[data-email-field='sectionBody']"))
-          .map((item) => item.innerText.replace(/\s+/g, " ").trim())
-          .filter(Boolean);
-
-        return {
-          ...section,
-          title: textFrom(sectionRoot, "[data-email-field='sectionTitle']") || section.title,
-          body: body.length ? body : section.body,
-        };
-      }),
-      closing: textFrom(root, "[data-email-field='closing']") || newsletter.closing,
-    };
-
-    editedNewsletterRef.current = edited;
-    return edited;
+    return editedNewsletterRef.current ?? newsletter;
   }
 
   return (
     <main className="min-h-screen bg-[#111111] text-[#f6f1e8]">
-      <div className="grid min-h-screen grid-cols-[420px_minmax(0,1fr)_380px] max-[1280px]:grid-cols-[360px_minmax(0,1fr)] max-[1040px]:block">
+      <div className="grid min-h-screen grid-cols-[420px_minmax(0,1fr)] max-[1180px]:grid-cols-[360px_minmax(0,1fr)] max-[900px]:block">
         <aside className="sticky top-0 h-screen overflow-auto border-r border-white/10 bg-[#111111] p-5 max-[1040px]:static max-[1040px]:h-auto max-[1040px]:border-b max-[1040px]:border-r-0">
           <div className="mb-5 flex items-center justify-between border-b border-white/10 pb-4">
             <div>
@@ -455,14 +425,8 @@ export function NewsletterBuilder() {
         </aside>
 
         <section className="min-h-screen bg-[#efebe1] p-8 text-[#141414] max-[720px]:p-4">
-          <NewsletterPreview
-            newsletter={newsletter}
-            subject={subject}
-            previewRef={previewRef}
-            onInput={updateEmailPreview}
-          />
+          <EmailPreviewCanvas newsletter={newsletter} emailPreviewHtml={emailPreviewHtml} />
         </section>
-        <EmailPreviewPanel newsletter={newsletter} emailPreviewHtml={emailPreviewHtml} />
       </div>
     </main>
   );
@@ -470,10 +434,6 @@ export function NewsletterBuilder() {
 
 function createImageSeed() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
-function textFrom(root: ParentNode, selector: string) {
-  return root.querySelector<HTMLElement>(selector)?.innerText.replace(/\s+/g, " ").trim() ?? "";
 }
 
 function Field({ label, htmlFor, children }: { label: string; htmlFor: string; children: React.ReactNode }) {
@@ -516,119 +476,7 @@ function ActionButton({
   );
 }
 
-function NewsletterPreview({
-  newsletter,
-  subject,
-  previewRef,
-  onInput,
-}: {
-  newsletter: Newsletter | null;
-  subject: string;
-  previewRef: React.RefObject<HTMLElement | null>;
-  onInput: () => void;
-}) {
-  if (!newsletter) {
-    return (
-      <article className="mx-auto max-w-6xl overflow-hidden rounded-[8px] border border-black/10 bg-[#f7f3e9] shadow-[0_30px_90px_rgba(20,20,20,0.16)]">
-        <div className="grid min-h-[420px] grid-cols-[1fr_1.2fr] border-b border-black/10 max-[900px]:block">
-          <div className="flex flex-col justify-between bg-[#141414] p-8 text-[#efebe1]">
-            <p className="text-xs font-black uppercase tracking-[0.22em] text-[#d7ff64]">Digital Content TF</p>
-            <h2 className="mt-16 text-6xl font-black leading-[0.95] tracking-tight max-[720px]:text-4xl">
-              Make
-              <br />
-              the issue
-            </h2>
-            <p className="mt-8 max-w-sm text-sm leading-6 text-zinc-400">
-              왼쪽의 버튼을 누르면 최신 보고를 읽고, 이미지가 포함된 웹 뉴스레터 초안을 만듭니다.
-            </p>
-          </div>
-          <div className="grid place-items-center p-8">
-            <div className="w-full max-w-md rounded-[8px] border border-black/10 bg-white p-5">
-              <div className="mb-10 flex items-center justify-between text-xs font-black uppercase tracking-[0.16em] text-zinc-500">
-                <span>Preview</span>
-                <FileText size={18} />
-              </div>
-              <div className="h-28 rounded-[8px] bg-[#d7ff64]" />
-              <div className="mt-5 space-y-3">
-                <div className="h-4 w-3/4 rounded-full bg-black/15" />
-                <div className="h-4 w-1/2 rounded-full bg-black/10" />
-                <div className="h-4 w-5/6 rounded-full bg-black/10" />
-              </div>
-            </div>
-          </div>
-        </div>
-      </article>
-    );
-  }
-
-  return (
-    <article
-      ref={previewRef}
-      contentEditable
-      suppressContentEditableWarning
-      onInput={onInput}
-      className="newsletter mx-auto max-w-6xl overflow-hidden rounded-[8px] border border-black/10 bg-[#f7f3e9] shadow-[0_30px_90px_rgba(20,20,20,0.16)] outline-none focus:ring-4 focus:ring-[#d7ff64]/60"
-      aria-label="뉴스레터 편집 영역"
-    >
-      <header className="hero grid min-h-[460px] grid-cols-[1fr_1.08fr] border-b border-black/10 max-[900px]:block">
-        <div className="flex flex-col justify-between bg-[#141414] p-8 text-[#efebe1]">
-          <div>
-            {subject ? <p className="text-sm font-black leading-6 text-[#d7ff64]">{subject}</p> : null}
-          </div>
-          <div>
-            <h2 className="max-w-xl text-6xl font-black leading-[0.92] tracking-tight max-[720px]:text-4xl">
-              <span data-email-field="heroTitle">{newsletter.heroTitle}</span>
-            </h2>
-          </div>
-        </div>
-        <div className="bg-[#d7ff64] p-5">
-          {newsletter.heroImageUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={newsletter.heroImageUrl} alt="" className="h-full min-h-[420px] w-full rounded-[8px] object-cover" />
-          ) : (
-            <div className="h-full min-h-[420px] rounded-[8px] bg-black/10" />
-          )}
-        </div>
-      </header>
-
-      <div className="grid gap-px bg-black/10">
-        {newsletter.sections.map((section, index) => (
-          <section key={section.id} data-section-id={section.id} className="section grid grid-cols-[260px_1fr] bg-[#f7f3e9] max-[760px]:block">
-            <div className={`section-${section.tone} relative min-h-[260px] overflow-hidden border-r border-black/10 max-[760px]:min-h-[220px] max-[760px]:border-b max-[760px]:border-r-0`}>
-              <p className="absolute left-4 top-4 z-10 rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-white">0{index + 1}</p>
-              {section.imageUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={section.imageUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
-              ) : null}
-            </div>
-            <div className="p-7">
-              <p className="mb-3 text-xs font-black uppercase tracking-[0.16em] text-[#ff6b4a]">{section.eyebrow}</p>
-              <h3 data-email-field="sectionTitle" className="mb-5 max-w-3xl text-3xl font-black leading-tight tracking-tight">{section.title}</h3>
-              {section.body.length === 1 ? (
-                <p data-email-field="sectionBody" className="max-w-4xl text-lg leading-9 text-[#282828]">{section.body[0]}</p>
-              ) : (
-                <ul className="grid gap-3 text-base leading-8 text-[#282828]">
-                  {section.body.map((item) => (
-                    <li key={item} data-email-field="sectionBody" className="border-l-4 border-black/15 pl-4">
-                      {item}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </section>
-        ))}
-      </div>
-
-      <footer className="grid grid-cols-[260px_1fr] border-t border-black/10 bg-[#141414] text-[#efebe1] max-[760px]:block">
-        <div className="p-6 text-xs font-black uppercase tracking-[0.18em] text-[#d7ff64]">Next issue</div>
-        <p data-email-field="closing" className="p-6 text-xl font-bold leading-8">{newsletter.closing}</p>
-      </footer>
-    </article>
-  );
-}
-
-function EmailPreviewPanel({
+function EmailPreviewCanvas({
   newsletter,
   emailPreviewHtml,
 }: {
@@ -636,30 +484,30 @@ function EmailPreviewPanel({
   emailPreviewHtml: string;
 }) {
   return (
-    <aside className="sticky top-0 h-screen overflow-auto border-l border-white/10 bg-[#151515] p-4 text-[#f6f1e8] max-[1280px]:col-span-2 max-[1280px]:h-auto max-[1280px]:border-l-0 max-[1280px]:border-t max-[1040px]:static">
-      <div className="mb-4 flex items-center justify-between border-b border-white/10 pb-3">
+    <div className="mx-auto max-w-[900px]">
+      <div className="mb-4 flex items-center justify-between border-b border-black/10 pb-3">
         <div>
-          <p className="text-[11px] font-black uppercase tracking-[0.18em] text-[#d7ff64]">Send Preview</p>
-          <h2 className="mt-1 text-xl font-black">발송본 미리보기</h2>
+          <p className="text-[11px] font-black uppercase tracking-[0.18em] text-[#ff6b4a]">Gmail Preview</p>
+          <h2 className="mt-1 text-2xl font-black">발송본 미리보기</h2>
         </div>
-        <span className="rounded-full border border-white/10 px-2.5 py-1 text-[11px] font-black text-zinc-400">720px</span>
+        <span className="rounded-full border border-black/10 bg-white/60 px-3 py-1 text-[11px] font-black text-zinc-500">720px</span>
       </div>
 
-      <div className="rounded-[8px] border border-white/10 bg-white p-2">
+      <div className="rounded-[8px] border border-black/10 bg-white p-3 shadow-[0_30px_90px_rgba(20,20,20,0.14)]">
         {newsletter && emailPreviewHtml ? (
           <iframe
             title="Gmail 발송 미리보기"
             srcDoc={emailPreviewHtml}
-            className="h-[420px] w-full rounded-[6px] bg-[#efebe1]"
+            className="h-[calc(100vh-160px)] min-h-[720px] w-full rounded-[6px] bg-[#efebe1] max-[900px]:h-[760px]"
             sandbox="allow-same-origin"
           />
         ) : (
-          <div className="grid h-[420px] place-items-center rounded-[6px] bg-[#efebe1] px-8 text-center text-sm font-bold leading-6 text-zinc-500">
+          <div className="grid min-h-[720px] place-items-center rounded-[6px] bg-[#efebe1] px-8 text-center text-sm font-bold leading-6 text-zinc-500">
             이번 호를 만들면 실제 Gmail 발송 크기의 미리보기가 여기에 표시됩니다.
           </div>
         )}
       </div>
-    </aside>
+    </div>
   );
 }
 
