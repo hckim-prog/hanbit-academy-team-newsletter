@@ -1,4 +1,5 @@
 import type { Newsletter, NewsletterSection, RawReport } from "./types";
+import { normalizeNewsletterItems, normalizeNewsletterSentence } from "./korean-style";
 
 const TEAM_NAME = "디지털콘텐츠전환TF";
 
@@ -114,7 +115,7 @@ function compactBullets(blocks: Array<string | undefined>, limit: number): strin
     .filter((line) => line && line !== "없음")
     .map(toNewsletterSentence);
 
-  return [...new Set(items)].slice(0, limit);
+  return normalizeNewsletterItems([...new Set(items)], limit);
 }
 
 function extractTopItems(text: string): string[] {
@@ -149,10 +150,7 @@ function toNewsletterSentence(text: string): string {
   sentence = sentence.replace(/필요\.?$/g, "필요해요.");
   sentence = sentence.replace(/예정\.?$/g, "예정이에요.");
 
-  if (!/[.!?。]$/.test(sentence)) {
-    sentence += ".";
-  }
-  return sentence;
+  return normalizeNewsletterSentence(sentence);
 }
 
 function trimEndMark(text: string): string {
@@ -160,7 +158,7 @@ function trimEndMark(text: string): string {
 }
 
 function imagePrompt(prompt: string): string {
-  return `${prompt} Make it look like a real professional photo, not an illustration or cartoon. Use editorial lighting, clean composition, realistic people or hands when useful, no logos, no watermark, no readable text.`;
+  return `${prompt} Make it look like a real professional photo, not an illustration or cartoon. Use editorial lighting, clean composition, realistic Korean adult professionals or hands when people are useful. Avoid children, minors, schoolchildren, elementary or middle school students, and Chinese-specific visual settings. No logos, no watermark, no readable text.`;
 }
 
 function formatKoreanDateTime(date: Date): string {

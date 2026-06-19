@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import type { Newsletter } from "./types";
+import { normalizeNewsletterItems, normalizeNewsletterSentence } from "./korean-style";
 
 export async function polishNewsletter(newsletter: Newsletter): Promise<Newsletter> {
   if (!process.env.OPENAI_API_KEY) {
@@ -17,6 +18,7 @@ export async function polishNewsletter(newsletter: Newsletter): Promise<Newslett
             "You polish Korean internal newsletters for Hanbit Academy members.",
             "Keep facts, dates, names, numbers, and section meanings unchanged. Do not add new facts.",
             "Rewrite body sentences in a consistent friendly-professional Korean 요체.",
+            "Every body item must end with 요체, not 음체, 명사형, or report fragments.",
             "Do not mix report-style nominal endings such as 진행, 완료, 예정, 검토, 확인, 필요, 요청, 공유 as sentence endings.",
             "Turn those nominal endings into natural predicates such as 진행했어요, 완료했어요, 예정이에요, 검토하고 있어요, 확인했어요, 필요해요, 요청드려요, 공유해요.",
             "Make every body sentence short and easy to scan. Prefer 1 sentence under 45 Korean characters; use 2 short sentences if needed.",
@@ -60,11 +62,11 @@ export async function polishNewsletter(newsletter: Newsletter): Promise<Newslett
         ? {
             ...section,
             title: polished.title || section.title,
-            body: polished.body?.length ? polished.body : section.body,
+            body: normalizeNewsletterItems(polished.body?.length ? polished.body : section.body, 6),
           }
         : section;
     }),
-    closing: parsed.closing || newsletter.closing,
+    closing: normalizeNewsletterSentence(parsed.closing || newsletter.closing),
   };
 }
 

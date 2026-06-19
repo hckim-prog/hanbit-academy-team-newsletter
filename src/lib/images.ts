@@ -97,16 +97,16 @@ function realPhotoUrl(source: string, salt: string): string {
 function photoKeywords(source: string): string[] {
   const normalized = source.toLowerCase();
   const dictionary: Array<[RegExp, string[]]> = [
-    [/세미나|seminar|webinar|online|학생|student|class|lecture/, ["seminar", "students", "education"]],
-    [/교재|교과서|book|textbook|콘텐츠|content/, ["books", "education", "technology"]],
+    [/세미나|seminar|webinar|online|class|lecture/, ["korean", "business", "conference"]],
+    [/교재|교과서|book|textbook|콘텐츠|content/, ["books", "office", "technology"]],
     [/ai|인공지능|data|데이터|cloud|digital|디지털/, ["technology", "computer", "office"]],
     [/영업|sales|field|현장|catalog|catalogue/, ["business", "meeting", "office"]],
     [/검수|quality|check|리스크|risk|link|file|calendar/, ["workspace", "laptop", "planning"]],
-    [/협업|feedback|review|공유|team|coworker/, ["teamwork", "office", "collaboration"]],
+    [/협업|feedback|review|공유|team|coworker/, ["teamwork", "office", "business"]],
   ];
 
   const matched = dictionary.find(([pattern]) => pattern.test(normalized));
-  return matched?.[1] ?? ["education", "technology", "office"];
+  return matched?.[1] ?? ["korean", "office", "technology"];
 }
 
 function stableHash(value: string): number {

@@ -544,11 +544,11 @@ function NewsletterPreview({
       <div className="grid gap-px bg-black/10">
         {newsletter.sections.map((section, index) => (
           <section key={section.id} className="section grid grid-cols-[260px_1fr] bg-[#f7f3e9] max-[760px]:block">
-            <div className={`section-${section.tone} border-r border-black/10 p-5 max-[760px]:border-b max-[760px]:border-r-0`}>
-              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-black/50">0{index + 1}</p>
+            <div className={`section-${section.tone} relative min-h-[260px] overflow-hidden border-r border-black/10 max-[760px]:min-h-[220px] max-[760px]:border-b max-[760px]:border-r-0`}>
+              <p className="absolute left-4 top-4 z-10 rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-white">0{index + 1}</p>
               {section.imageUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={section.imageUrl} alt="" className="mt-5 aspect-[4/3] w-full rounded-[8px] object-cover" />
+                <img src={section.imageUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
               ) : null}
             </div>
             <div className="p-7">
