@@ -89,24 +89,84 @@ function addFallbackPhotos(newsletter: Newsletter, imageSeed: string): Newslette
 }
 
 function realPhotoUrl(source: string, salt: string): string {
-  const keywords = photoKeywords(source);
   const lock = stableHash(`${salt}:${source}`);
-  return `https://loremflickr.com/1200/800/${keywords.join(",")}?lock=${lock}`;
+  const keywordGroups = photoKeywordGroups(source);
+  const keywords = keywordGroups[lock % keywordGroups.length];
+  const provider = lock % 5;
+
+  if (provider === 0) {
+    return `https://picsum.photos/seed/hanbit-${lock}/1200/800`;
+  }
+
+  return `https://loremflickr.com/1200/800/${keywords.join(",")}/all?lock=${lock}`;
 }
 
-function photoKeywords(source: string): string[] {
+function photoKeywordGroups(source: string): string[][] {
   const normalized = source.toLowerCase();
-  const dictionary: Array<[RegExp, string[]]> = [
-    [/세미나|seminar|webinar|online|class|lecture/, ["korean", "business", "conference"]],
-    [/교재|교과서|book|textbook|콘텐츠|content/, ["books", "office", "technology"]],
-    [/ai|인공지능|data|데이터|cloud|digital|디지털/, ["technology", "computer", "office"]],
-    [/영업|sales|field|현장|catalog|catalogue/, ["business", "meeting", "office"]],
-    [/검수|quality|check|리스크|risk|link|file|calendar/, ["workspace", "laptop", "planning"]],
-    [/협업|feedback|review|공유|team|coworker/, ["teamwork", "office", "business"]],
+  const dictionary: Array<[RegExp, string[][]]> = [
+    [
+      /세미나|seminar|webinar|online|class|lecture/,
+      [
+        ["business", "conference", "meeting"],
+        ["office", "presentation", "auditorium"],
+        ["technology", "conference", "speaker"],
+        ["korean", "business", "meeting"],
+      ],
+    ],
+    [
+      /교재|교과서|book|textbook|콘텐츠|content/,
+      [
+        ["books", "office", "technology"],
+        ["publishing", "desk", "laptop"],
+        ["library", "computer", "workspace"],
+        ["tablet", "book", "office"],
+      ],
+    ],
+    [
+      /ai|인공지능|data|데이터|cloud|digital|디지털/,
+      [
+        ["technology", "computer", "office"],
+        ["data", "dashboard", "laptop"],
+        ["software", "workspace", "screen"],
+        ["artificial-intelligence", "business", "computer"],
+      ],
+    ],
+    [
+      /영업|sales|field|현장|catalog|catalogue/,
+      [
+        ["business", "meeting", "office"],
+        ["sales", "presentation", "laptop"],
+        ["workshop", "booth", "business"],
+        ["conference", "networking", "office"],
+      ],
+    ],
+    [
+      /검수|quality|check|리스크|risk|link|file|calendar/,
+      [
+        ["workspace", "laptop", "planning"],
+        ["checklist", "desk", "computer"],
+        ["calendar", "office", "laptop"],
+        ["document", "review", "workspace"],
+      ],
+    ],
+    [
+      /협업|feedback|review|공유|team|coworker/,
+      [
+        ["teamwork", "office", "business"],
+        ["collaboration", "meeting", "laptop"],
+        ["coworking", "workshop", "office"],
+        ["business", "discussion", "workspace"],
+      ],
+    ],
   ];
 
   const matched = dictionary.find(([pattern]) => pattern.test(normalized));
-  return matched?.[1] ?? ["korean", "office", "technology"];
+  return matched?.[1] ?? [
+    ["korean", "office", "technology"],
+    ["business", "workspace", "laptop"],
+    ["books", "desk", "computer"],
+    ["conference", "office", "presentation"],
+  ];
 }
 
 function stableHash(value: string): number {
