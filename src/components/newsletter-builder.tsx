@@ -710,7 +710,7 @@ function buildEmailHtml(newsletter: Newsletter, subject: string) {
                 <div class="email-pad" style="padding:30px 32px 22px 32px;">
                   <p style="margin:0 0 14px 0;color:#d7ff64;font-size:13px;font-weight:800;line-height:1.5;">${escapeHtml(subject || newsletter.subject)}</p>
                   <h1 class="email-title" style="margin:0;color:#f6f1e8;font-size:42px;line-height:1.08;font-weight:900;letter-spacing:0;">${escapeHtml(newsletter.heroTitle)}</h1>
-                  ${newsletter.heroImageUrl ? `<div style="margin:20px 0 0 0;">${emailImage(newsletter.heroImageUrl, newsletter.heroTitle, 180, 120)}</div>` : ""}
+                  ${newsletter.heroImageUrl ? `<div style="margin:22px 0 0 0;">${heroEmailImage(newsletter.heroImageUrl, newsletter.heroTitle)}</div>` : ""}
                 </div>
               </td>
             </tr>
@@ -731,6 +731,10 @@ function buildEmailHtml(newsletter: Newsletter, subject: string) {
 
 function emailImage(src: string, alt: string, width: number, height: number) {
   return `<img src="${escapeAttribute(src)}" alt="${escapeAttribute(alt)}" width="${width}" height="${height}" style="display:block;width:${width}px;max-width:100%;height:${height}px;border:0;border-radius:8px;margin:0;padding:0;">`;
+}
+
+function heroEmailImage(src: string, alt: string) {
+  return `<img src="${escapeAttribute(src)}" alt="${escapeAttribute(alt)}" width="656" height="260" style="display:block;width:100%;max-width:656px;height:260px;border:0;border-radius:8px;margin:0;padding:0;">`;
 }
 
 function escapeHtml(value: string) {
