@@ -1,0 +1,6 @@
+.next
+.vercel/output
+node_modules
+legacy
+output
+*.tsbuildinfo
