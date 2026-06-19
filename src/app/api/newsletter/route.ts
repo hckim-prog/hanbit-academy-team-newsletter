@@ -7,10 +7,10 @@ export const runtime = "nodejs";
 
 export async function POST(request: Request) {
   try {
-    const body = (await request.json().catch(() => ({}))) as { images?: boolean };
+    const body = (await request.json().catch(() => ({}))) as { images?: boolean; imageSeed?: string };
     const report = await getLatestReport();
     const newsletter = buildNewsletter(report);
-    const withImages = body.images === false ? newsletter : await addGeneratedImages(newsletter);
+    const withImages = body.images === false ? newsletter : await addGeneratedImages(newsletter, body.imageSeed);
 
     return NextResponse.json({
       newsletter: withImages,

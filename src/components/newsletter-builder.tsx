@@ -9,6 +9,7 @@ import {
   Loader2,
   Mail,
   MailCheck,
+  RefreshCw,
   Send,
   Sparkles,
   WandSparkles,
@@ -81,7 +82,7 @@ export function NewsletterBuilder() {
       const response = await fetch("/api/newsletter", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ images: includeImages }),
+        body: JSON.stringify({ images: includeImages, imageSeed: createImageSeed() }),
       });
       const payload = (await response.json()) as GenerateNewsletterResponse & { error?: string };
 
@@ -95,6 +96,66 @@ export function NewsletterBuilder() {
       setUiStatus("초안을 만들었습니다. 미리보기 본문을 눌러 바로 수정할 수 있어요.", "done");
     } catch (error) {
       setUiStatus(error instanceof Error ? error.message : "오류가 발생했습니다.", "error");
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  async function polishWriting() {
+    if (!newsletter) {
+      return;
+    }
+
+    setIsLoading(true);
+    setUiStatus("GitHub 인기 교정 도구의 방향을 참고해 뉴스레터 문장체를 다듬는 중입니다.", "working");
+
+    try {
+      const response = await fetch("/api/polish", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ newsletter }),
+      });
+      const payload = (await response.json()) as { newsletter?: Newsletter; error?: string };
+
+      if (!response.ok || payload.error || !payload.newsletter) {
+        throw new Error(payload.error ?? "문장체 다듬기에 실패했습니다.");
+      }
+
+      setNewsletter(payload.newsletter);
+      window.setTimeout(updateEmailPreview, 50);
+      setUiStatus("문장체를 더 읽기 좋게 다듬었습니다.", "done");
+    } catch (error) {
+      setUiStatus(error instanceof Error ? error.message : "문장체 다듬기 중 오류가 발생했습니다.", "error");
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  async function refreshImages() {
+    if (!newsletter) {
+      return;
+    }
+
+    setIsLoading(true);
+    setUiStatus("같은 내용에 어울리는 다른 이미지를 고르는 중입니다.", "working");
+
+    try {
+      const response = await fetch("/api/images", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ newsletter, imageSeed: createImageSeed() }),
+      });
+      const payload = (await response.json()) as { newsletter?: Newsletter; error?: string };
+
+      if (!response.ok || payload.error || !payload.newsletter) {
+        throw new Error(payload.error ?? "이미지 새로고침에 실패했습니다.");
+      }
+
+      setNewsletter(payload.newsletter);
+      window.setTimeout(updateEmailPreview, 50);
+      setUiStatus("이미지를 새 조합으로 바꿨습니다.", "done");
+    } catch (error) {
+      setUiStatus(error instanceof Error ? error.message : "이미지 새로고침 중 오류가 발생했습니다.", "error");
     } finally {
       setIsLoading(false);
     }
@@ -289,6 +350,20 @@ export function NewsletterBuilder() {
               variant="primary"
             />
             <div className="grid grid-cols-2 gap-2">
+              <ActionButton
+                onClick={polishWriting}
+                disabled={!newsletter || isLoading}
+                icon={<Sparkles size={17} />}
+                label="문장체 다듬기"
+              />
+              <ActionButton
+                onClick={refreshImages}
+                disabled={!newsletter || isLoading}
+                icon={<RefreshCw size={17} />}
+                label="이미지 새로고침"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
               <ActionButton onClick={copyHtml} disabled={!newsletter || isLoading} icon={<Copy size={17} />} label="HTML 복사" />
               <ActionButton
                 onClick={downloadHtml}
@@ -345,6 +420,10 @@ export function NewsletterBuilder() {
       </div>
     </main>
   );
+}
+
+function createImageSeed() {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
 function Field({ label, htmlFor, children }: { label: string; htmlFor: string; children: React.ReactNode }) {

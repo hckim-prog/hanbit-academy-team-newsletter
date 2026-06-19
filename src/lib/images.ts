@@ -3,9 +3,9 @@ import type { Newsletter } from "./types";
 
 const IMAGE_COUNT = Number(process.env.NEWSLETTER_IMAGE_COUNT ?? "4");
 
-export async function addGeneratedImages(newsletter: Newsletter): Promise<Newsletter> {
+export async function addGeneratedImages(newsletter: Newsletter, imageSeed = String(Date.now())): Promise<Newsletter> {
   if (!process.env.OPENAI_API_KEY) {
-    return addFallbackPhotos(newsletter);
+    return addFallbackPhotos(newsletter, imageSeed);
   }
 
   const targets = [
@@ -21,7 +21,7 @@ export async function addGeneratedImages(newsletter: Newsletter): Promise<Newsle
     const generated = await Promise.all(
       targets.map(async (target, index) => ({
         ...target,
-        url: await generateImage(target.prompt, index),
+        url: await generateImage(`${target.prompt}\nVariation seed: ${imageSeed}-${index}. Use a visibly different composition from prior issues.`, index),
       })),
     );
 
@@ -38,7 +38,7 @@ export async function addGeneratedImages(newsletter: Newsletter): Promise<Newsle
     };
   } catch (error) {
     console.error("Image generation failed", error);
-    return addFallbackPhotos(newsletter);
+    return addFallbackPhotos(newsletter, imageSeed);
   }
 }
 
@@ -77,13 +77,13 @@ async function generateImage(prompt: string, index: number): Promise<string> {
   return `data:image/png;base64,${imageData}`;
 }
 
-function addFallbackPhotos(newsletter: Newsletter): Newsletter {
+function addFallbackPhotos(newsletter: Newsletter, imageSeed: string): Newsletter {
   return {
     ...newsletter,
-    heroImageUrl: realPhotoUrl(newsletter.heroImagePrompt, "hero"),
+    heroImageUrl: realPhotoUrl(newsletter.heroImagePrompt, `hero:${imageSeed}`),
     sections: newsletter.sections.map((section) => ({
       ...section,
-      imageUrl: realPhotoUrl(`${section.title} ${section.body.join(" ")} ${section.imagePrompt}`, section.id),
+      imageUrl: realPhotoUrl(`${section.title} ${section.body.join(" ")} ${section.imagePrompt}`, `${section.id}:${imageSeed}`),
     })),
   };
 }

@@ -16,6 +16,8 @@ Vercel에 배포해서 쓰는 디지털콘텐츠전환TF 격주 뉴스레터 생
 - Gmail 임시보관함 생성
 - Gmail 직접 발송
 - Awwwards 스타일을 참고한 매거진형 웹 뉴스레터 프리뷰
+- GitHub 인기 교정 도구의 방향을 참고한 뉴스레터 문장체 다듬기
+- 같은 내용에서도 매번 다른 이미지 조합을 고르는 이미지 새로고침
 - Vercel 배포 가능
 
 ## 로컬 실행
@@ -48,6 +50,7 @@ GOOGLE_SERVICE_ACCOUNT_EMAIL=...
 GOOGLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
 
 # 선택 설정
+OPENAI_TEXT_MODEL=gpt-4.1-mini
 NEWSLETTER_IMAGE_COUNT=4
 
 # Gmail 발송 기능
