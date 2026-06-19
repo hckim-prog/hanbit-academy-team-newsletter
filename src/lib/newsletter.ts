@@ -119,10 +119,15 @@ function compactBullets(blocks: Array<string | undefined>, limit: number): strin
     .map((line) => line.trim())
     .filter(Boolean)
     .map((line) => line.replace(/^[-•ㄴ\s]+/, "").trim())
+    .filter((line) => !isSignalHeading(line))
     .filter((line) => line && line !== "없음")
     .map(toNewsletterSentence);
 
   return normalizeNewsletterItems([...new Set(items)], limit);
+}
+
+function isSignalHeading(line: string): boolean {
+  return /^(긍정 신호|약한 신호|새로운 기회|리스크)$/u.test(line.replace(/[.。:：]$/g, "").trim());
 }
 
 function extractTopItems(text: string): string[] {
