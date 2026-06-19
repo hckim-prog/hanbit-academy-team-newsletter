@@ -43,6 +43,7 @@ export function NewsletterBuilder() {
   const [gmailStatus, setGmailStatus] = useState<GmailStatus | null>(null);
   const [emailPreviewHtml, setEmailPreviewHtml] = useState("");
   const previewRef = useRef<HTMLElement>(null);
+  const editedNewsletterRef = useRef<Newsletter | null>(null);
 
   function setUiStatus(message: string, kind: keyof typeof statusTone = "idle") {
     setStatus(message);
@@ -69,8 +70,7 @@ export function NewsletterBuilder() {
   }, [refreshGmailStatus]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setEmailPreviewHtml(newsletter ? buildEmailHtml(newsletter, subject) : "");
+    setEmailPreviewHtml(newsletter ? buildEmailHtml(editedNewsletterRef.current ?? newsletter, subject) : "");
   }, [newsletter, subject]);
 
   async function disconnectGmail() {
@@ -96,6 +96,7 @@ export function NewsletterBuilder() {
       }
 
       setNewsletter(payload.newsletter);
+      editedNewsletterRef.current = payload.newsletter;
       setSubject(payload.newsletter.subject);
       window.setTimeout(updateEmailPreview, 50);
       setUiStatus("초안을 만들었습니다. 미리보기 본문을 눌러 바로 수정할 수 있어요.", "done");
@@ -127,6 +128,7 @@ export function NewsletterBuilder() {
       }
 
       setNewsletter(payload.newsletter);
+      editedNewsletterRef.current = payload.newsletter;
       window.setTimeout(updateEmailPreview, 50);
       setUiStatus("명사형 문장을 줄이고, 짧은 요체 문장으로 다듬었습니다.", "done");
     } catch (error) {
@@ -157,6 +159,7 @@ export function NewsletterBuilder() {
       }
 
       setNewsletter(payload.newsletter);
+      editedNewsletterRef.current = payload.newsletter;
       window.setTimeout(updateEmailPreview, 50);
       setUiStatus("이미지를 새 조합으로 바꿨습니다.", "done");
     } catch (error) {
@@ -170,7 +173,7 @@ export function NewsletterBuilder() {
     if (!newsletter) {
       return;
     }
-    await navigator.clipboard.writeText(buildEmailHtml(newsletter, subject));
+    await navigator.clipboard.writeText(buildEmailHtml(getEditedNewsletter(), subject));
     setUiStatus("HTML을 클립보드에 복사했습니다.", "done");
   }
 
@@ -178,7 +181,7 @@ export function NewsletterBuilder() {
     if (!newsletter) {
       return;
     }
-    const html = buildEmailHtml(newsletter, subject);
+    const html = buildEmailHtml(getEditedNewsletter(), subject);
     const blob = new Blob([html], { type: "text/html;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
@@ -209,7 +212,7 @@ export function NewsletterBuilder() {
         body: JSON.stringify({
           recipients,
           subject,
-          html: buildEmailHtml(newsletter, subject),
+          html: buildEmailHtml(getEditedNewsletter(), subject),
           mode,
           confirmed: sendConfirmed,
         }),
@@ -240,8 +243,44 @@ export function NewsletterBuilder() {
 
   function updateEmailPreview() {
     if (newsletter) {
-      setEmailPreviewHtml(buildEmailHtml(newsletter, subject));
+      setEmailPreviewHtml(buildEmailHtml(getEditedNewsletter(), subject));
     }
+  }
+
+  function getEditedNewsletter() {
+    if (!newsletter) {
+      throw new Error("뉴스레터가 없습니다.");
+    }
+
+    const root = previewRef.current;
+    if (!root) {
+      return editedNewsletterRef.current ?? newsletter;
+    }
+
+    const edited: Newsletter = {
+      ...newsletter,
+      heroTitle: textFrom(root, "[data-email-field='heroTitle']") || newsletter.heroTitle,
+      sections: newsletter.sections.map((section) => {
+        const sectionRoot = root.querySelector(`[data-section-id="${section.id}"]`);
+        if (!sectionRoot) {
+          return section;
+        }
+
+        const body = Array.from(sectionRoot.querySelectorAll<HTMLElement>("[data-email-field='sectionBody']"))
+          .map((item) => item.innerText.replace(/\s+/g, " ").trim())
+          .filter(Boolean);
+
+        return {
+          ...section,
+          title: textFrom(sectionRoot, "[data-email-field='sectionTitle']") || section.title,
+          body: body.length ? body : section.body,
+        };
+      }),
+      closing: textFrom(root, "[data-email-field='closing']") || newsletter.closing,
+    };
+
+    editedNewsletterRef.current = edited;
+    return edited;
   }
 
   return (
@@ -433,6 +472,10 @@ function createImageSeed() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function textFrom(root: ParentNode, selector: string) {
+  return root.querySelector<HTMLElement>(selector)?.innerText.replace(/\s+/g, " ").trim() ?? "";
+}
+
 function Field({ label, htmlFor, children }: { label: string; htmlFor: string; children: React.ReactNode }) {
   return (
     <label className="block" htmlFor={htmlFor}>
@@ -534,7 +577,7 @@ function NewsletterPreview({
           </div>
           <div>
             <h2 className="max-w-xl text-6xl font-black leading-[0.92] tracking-tight max-[720px]:text-4xl">
-              {newsletter.heroTitle}
+              <span data-email-field="heroTitle">{newsletter.heroTitle}</span>
             </h2>
           </div>
         </div>
@@ -550,7 +593,7 @@ function NewsletterPreview({
 
       <div className="grid gap-px bg-black/10">
         {newsletter.sections.map((section, index) => (
-          <section key={section.id} className="section grid grid-cols-[260px_1fr] bg-[#f7f3e9] max-[760px]:block">
+          <section key={section.id} data-section-id={section.id} className="section grid grid-cols-[260px_1fr] bg-[#f7f3e9] max-[760px]:block">
             <div className={`section-${section.tone} relative min-h-[260px] overflow-hidden border-r border-black/10 max-[760px]:min-h-[220px] max-[760px]:border-b max-[760px]:border-r-0`}>
               <p className="absolute left-4 top-4 z-10 rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-white">0{index + 1}</p>
               {section.imageUrl ? (
@@ -560,13 +603,13 @@ function NewsletterPreview({
             </div>
             <div className="p-7">
               <p className="mb-3 text-xs font-black uppercase tracking-[0.16em] text-[#ff6b4a]">{section.eyebrow}</p>
-              <h3 className="mb-5 max-w-3xl text-3xl font-black leading-tight tracking-tight">{section.title}</h3>
+              <h3 data-email-field="sectionTitle" className="mb-5 max-w-3xl text-3xl font-black leading-tight tracking-tight">{section.title}</h3>
               {section.body.length === 1 ? (
-                <p className="max-w-4xl text-lg leading-9 text-[#282828]">{section.body[0]}</p>
+                <p data-email-field="sectionBody" className="max-w-4xl text-lg leading-9 text-[#282828]">{section.body[0]}</p>
               ) : (
                 <ul className="grid gap-3 text-base leading-8 text-[#282828]">
                   {section.body.map((item) => (
-                    <li key={item} className="border-l-4 border-black/15 pl-4">
+                    <li key={item} data-email-field="sectionBody" className="border-l-4 border-black/15 pl-4">
                       {item}
                     </li>
                   ))}
@@ -579,7 +622,7 @@ function NewsletterPreview({
 
       <footer className="grid grid-cols-[260px_1fr] border-t border-black/10 bg-[#141414] text-[#efebe1] max-[760px]:block">
         <div className="p-6 text-xs font-black uppercase tracking-[0.18em] text-[#d7ff64]">Next issue</div>
-        <p className="p-6 text-xl font-bold leading-8">{newsletter.closing}</p>
+        <p data-email-field="closing" className="p-6 text-xl font-bold leading-8">{newsletter.closing}</p>
       </footer>
     </article>
   );
