@@ -450,10 +450,10 @@ export function NewsletterBuilder() {
                     <select
                       value={selectedSection.id}
                       onChange={(event) => setSelectedSectionId(event.target.value)}
-                      className="field-input h-11"
+                      className="field-input h-11 bg-[#1f1f1f] text-[#f6f1e8]"
                     >
                       {activeNewsletter?.sections.map((section, index) => (
-                        <option key={section.id} value={section.id}>
+                        <option key={section.id} value={section.id} className="bg-[#1f1f1f] text-[#f6f1e8]">
                           {String(index + 1).padStart(2, "0")} · {section.title}
                         </option>
                       ))}
