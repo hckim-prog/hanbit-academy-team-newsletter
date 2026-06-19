@@ -402,7 +402,7 @@ export function NewsletterBuilder() {
 
           {newsletter ? (
             <section className="mt-5 grid gap-2 border-t border-white/10 pt-5 text-xs text-zinc-500">
-              <span>원천 날짜: {newsletter.sourceDate}</span>
+              <span>뉴스레터 월: {newsletter.displayMonth}</span>
               <span>생성 시각: {newsletter.generatedAt}</span>
             </section>
           ) : null}

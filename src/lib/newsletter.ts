@@ -4,6 +4,7 @@ import { normalizeNewsletterItems, normalizeNewsletterSentence } from "./korean-
 const TEAM_NAME = "디지털콘텐츠전환TF";
 
 export function buildNewsletter(report: RawReport): Newsletter {
+  const displayMonth = toDisplayMonth(report.displayDate);
   const signals = parseSignalSections(report.signals);
   const bright = compactBullets([signals["긍정 신호"], signals["새로운 기회"]], 4);
   const focus = compactBullets([report.operations], 4);
@@ -75,19 +76,25 @@ export function buildNewsletter(report: RawReport): Newsletter {
   ];
 
   return {
-    subject: `[${TEAM_NAME}] ${report.displayDate} 격주 뉴스레터`,
+    subject: `[${TEAM_NAME}] ${displayMonth} 격주 뉴스레터`,
     teamName: TEAM_NAME,
     sourceDate: report.displayDate,
+    displayMonth,
     sourceRange: report.sourceRange,
     generatedAt: formatKoreanDateTime(new Date()),
     heroTitle: "디콘전TF 소식이 도착했어요",
-    heroSubtitle: `${report.displayDate} 기준으로 정리한 ${TEAM_NAME} 격주 뉴스레터입니다.`,
+    heroSubtitle: `${displayMonth} 소식을 정리한 ${TEAM_NAME} 격주 뉴스레터입니다.`,
     heroImagePrompt: imagePrompt(
-      `A photorealistic magazine-style hero photo for a Korean digital content transformation team newsletter. Show books, tablets, laptop, AI-assisted workflow, seminar screen, and a modern education office atmosphere. Date: ${report.displayDate}.`,
+      `A photorealistic magazine-style hero photo for a Korean digital content transformation team newsletter. Show books, tablets, laptop, AI-assisted workflow, seminar screen, and a modern education office atmosphere. Issue month: ${displayMonth}.`,
     ),
     sections,
     closing: "다음 소식도 가볍게 읽히지만 알맹이는 또렷하게 정리해 올게요.",
   };
+}
+
+function toDisplayMonth(value: string): string {
+  const match = value.trim().match(/(\d{1,2})\s*월/);
+  return match ? `${Number(match[1])}월` : value;
 }
 
 function parseSignalSections(text: string): Record<string, string> {

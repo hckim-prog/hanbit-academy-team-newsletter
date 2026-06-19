@@ -23,6 +23,7 @@ export type Newsletter = {
   subject: string;
   teamName: string;
   sourceDate: string;
+  displayMonth: string;
   sourceRange: string;
   generatedAt: string;
   heroTitle: string;
