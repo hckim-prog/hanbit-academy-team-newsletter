@@ -12,6 +12,8 @@ Vercel에 배포해서 쓰는 디지털콘텐츠전환TF 격주 뉴스레터 생
 - 웹 화면에서 본문 직접 검수/수정
 - HTML 복사
 - HTML 다운로드
+- Gmail 임시보관함 생성
+- Gmail 직접 발송
 - Vercel 배포 가능
 
 ## 로컬 실행
@@ -45,6 +47,15 @@ GOOGLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\
 
 # 선택 설정
 NEWSLETTER_IMAGE_COUNT=4
+
+# Gmail 발송 기능
+GMAIL_CLIENT_ID=...
+GMAIL_CLIENT_SECRET=...
+GMAIL_REFRESH_TOKEN=...
+GMAIL_SENDER_EMAIL=sender@example.com
+
+# 선택: 기본 수신자 목록. 화면에서 직접 입력해도 됩니다.
+ACADEMY_NEWSLETTER_RECIPIENTS=member1@example.com,member2@example.com
 ```
 
 OpenAI 이미지 생성이 billing hard limit, quota, model access 문제로 실패하면 앱은 뉴스레터가 깨지지 않도록 SVG 대체 이미지를 표시합니다. 결제 한도 또는 모델 접근 권한이 정상화되면 같은 버튼으로 실제 생성 이미지가 들어갑니다.
@@ -65,14 +76,46 @@ npx vercel --prod
 
 배포 후 Vercel 환경 변수에 위 값을 추가해야 실제 시트 읽기와 이미지 생성이 동작합니다.
 
+## Gmail 발송 설정
+
+Vercel 앱에서 Gmail 임시보관함 생성 또는 실제 발송을 하려면 Gmail API OAuth 값이 필요합니다.
+
+1. Google Cloud Console에서 `Gmail API`를 사용 설정합니다.
+2. `API 및 서비스 > OAuth 동의 화면`을 설정합니다.
+3. `API 및 서비스 > 사용자 인증 정보 > 사용자 인증 정보 만들기 > OAuth 클라이언트 ID`를 만듭니다.
+4. 앱 유형은 `데스크톱 앱`으로 만들어도 됩니다.
+5. OAuth client의 `client_id`, `client_secret`을 확보합니다.
+6. Gmail scope는 아래 중 필요한 범위로 refresh token을 발급합니다.
+
+```text
+https://www.googleapis.com/auth/gmail.send
+https://www.googleapis.com/auth/gmail.compose
+```
+
+앱은 다음 방식으로 동작합니다.
+
+- `Gmail 임시보관함`: Gmail Draft를 만듭니다.
+- `Gmail 발송`: 발송 확인 체크가 켜져 있을 때만 실제 발송합니다.
+- 수신자는 `Bcc`에 넣고, `To`는 `GMAIL_SENDER_EMAIL`로 설정합니다.
+
+Vercel에 필요한 값:
+
+```bash
+GMAIL_CLIENT_ID
+GMAIL_CLIENT_SECRET
+GMAIL_REFRESH_TOKEN
+GMAIL_SENDER_EMAIL
+```
+
 ## 운영 흐름
 
 1. 웹앱 접속
 2. `이미지 함께 생성` 켜기
 3. `이번 호 만들기` 클릭
 4. 본문을 직접 검수/수정
-5. `HTML 복사` 또는 `HTML 다운로드`
-6. Gmail/사내 메일 도구에서 최종 발송
+5. 받는 사람 입력
+6. `Gmail 임시보관함` 또는 `Gmail 발송`
+7. 필요하면 `HTML 복사` 또는 `HTML 다운로드`로 별도 보관
 
 ## 보관 자료
 

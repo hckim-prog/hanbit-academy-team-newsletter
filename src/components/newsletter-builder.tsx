@@ -6,7 +6,9 @@ import {
   FileText,
   Image as ImageIcon,
   Loader2,
+  Mail,
   RefreshCw,
+  Send,
   WandSparkles,
 } from "lucide-react";
 import { useRef, useState } from "react";
@@ -18,6 +20,8 @@ export function NewsletterBuilder() {
   const [isLoading, setIsLoading] = useState(false);
   const [includeImages, setIncludeImages] = useState(true);
   const [subject, setSubject] = useState("");
+  const [recipients, setRecipients] = useState("");
+  const [sendConfirmed, setSendConfirmed] = useState(false);
   const previewRef = useRef<HTMLElement>(null);
 
   async function generate() {
@@ -69,6 +73,54 @@ export function NewsletterBuilder() {
     setStatus("HTML 파일을 다운로드했습니다.");
   }
 
+  async function deliver(mode: "draft" | "send") {
+    if (!newsletter) {
+      return;
+    }
+
+    if (mode === "send" && !sendConfirmed) {
+      setStatus("실제 발송 전 확인 체크가 필요합니다.");
+      return;
+    }
+
+    setIsLoading(true);
+    setStatus(mode === "draft" ? "Gmail 임시보관함을 만드는 중입니다..." : "Gmail로 발송하는 중입니다...");
+
+    try {
+      const response = await fetch("/api/gmail", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recipients,
+          subject,
+          html: buildEmailHtml(previewRef.current?.innerHTML ?? ""),
+          mode,
+          confirmed: sendConfirmed,
+        }),
+      });
+      const payload = (await response.json()) as {
+        ok?: boolean;
+        id?: string;
+        recipientCount?: number;
+        error?: string;
+      };
+
+      if (!response.ok || payload.error) {
+        throw new Error(payload.error ?? "Gmail 처리에 실패했습니다.");
+      }
+
+      setStatus(
+        mode === "draft"
+          ? `Gmail 임시보관함을 만들었습니다. 대상 ${payload.recipientCount ?? 0}명.`
+          : `Gmail 발송을 완료했습니다. 대상 ${payload.recipientCount ?? 0}명.`,
+      );
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Gmail 처리 중 오류가 발생했습니다.");
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
   return (
     <main className="min-h-screen bg-[#fff7e8] text-[#172033]">
       <div className="grid min-h-screen grid-cols-[minmax(300px,380px)_1fr] max-[980px]:block">
@@ -109,6 +161,18 @@ export function NewsletterBuilder() {
             className="mb-4 w-full rounded-lg border border-[#e6c989] bg-[#fffdfa] px-3 py-3 text-sm outline-none focus:border-[#ff7a59]"
           />
 
+          <label className="mb-2 block text-sm font-bold" htmlFor="recipients">
+            받는 사람
+          </label>
+          <textarea
+            id="recipients"
+            value={recipients}
+            onChange={(event) => setRecipients(event.target.value)}
+            placeholder="academy@example.com, member@example.com"
+            rows={4}
+            className="mb-4 w-full resize-y rounded-lg border border-[#e6c989] bg-[#fffdfa] px-3 py-3 text-sm leading-6 outline-none focus:border-[#ff7a59]"
+          />
+
           <div className="grid gap-3">
             <button
               onClick={generate}
@@ -133,6 +197,32 @@ export function NewsletterBuilder() {
             >
               <Download size={18} />
               HTML 다운로드
+            </button>
+            <button
+              onClick={() => deliver("draft")}
+              disabled={!newsletter || isLoading}
+              className="flex items-center justify-center gap-2 rounded-lg bg-[#e8f8ec] px-4 py-3 font-black text-[#176b35] transition hover:bg-[#d9f2df] disabled:opacity-50"
+            >
+              <Mail size={18} />
+              Gmail 임시보관함
+            </button>
+
+            <label className="flex items-start gap-3 rounded-lg border border-[#f0d59b] bg-[#fffaf0] p-3 text-xs font-bold leading-5 text-[#73531a]">
+              <input
+                type="checkbox"
+                checked={sendConfirmed}
+                onChange={(event) => setSendConfirmed(event.target.checked)}
+                className="mt-0.5 size-4 accent-[#ff7a59]"
+              />
+              <span>본문과 수신자를 검수했고, 실제 Gmail 발송을 진행합니다.</span>
+            </label>
+            <button
+              onClick={() => deliver("send")}
+              disabled={!newsletter || isLoading || !sendConfirmed}
+              className="flex items-center justify-center gap-2 rounded-lg bg-[#ff7a59] px-4 py-3 font-black text-white transition hover:bg-[#f06744] disabled:opacity-50"
+            >
+              <Send size={18} />
+              Gmail 발송
             </button>
           </div>
 
