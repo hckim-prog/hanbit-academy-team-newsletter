@@ -43,6 +43,7 @@ export function NewsletterBuilder() {
   const [sendConfirmed, setSendConfirmed] = useState(false);
   const [gmailStatus, setGmailStatus] = useState<GmailStatus | null>(null);
   const [emailPreviewHtml, setEmailPreviewHtml] = useState("");
+  const [selectedSectionId, setSelectedSectionId] = useState("");
   const editedNewsletterRef = useRef<Newsletter | null>(null);
 
   function setUiStatus(message: string, kind: keyof typeof statusTone = "idle") {
@@ -97,6 +98,7 @@ export function NewsletterBuilder() {
 
       setNewsletter(payload.newsletter);
       editedNewsletterRef.current = payload.newsletter;
+      setSelectedSectionId(payload.newsletter.sections[0]?.id ?? "");
       setSubject(payload.newsletter.subject);
       window.setTimeout(updateEmailPreview, 50);
       setUiStatus("초안을 만들었습니다. 가운데 발송본 미리보기에서 실제 Gmail 형태를 확인해 주세요.", "done");
@@ -133,8 +135,10 @@ export function NewsletterBuilder() {
         throw new Error(payload.error ?? "문장체 다듬기에 실패했습니다.");
       }
 
-      setNewsletter(payload.newsletter);
-      editedNewsletterRef.current = payload.newsletter;
+      const nextNewsletter = payload.newsletter;
+      setNewsletter(nextNewsletter);
+      editedNewsletterRef.current = nextNewsletter;
+      setSelectedSectionId((current) => keepSelectedSection(current, nextNewsletter));
       window.setTimeout(updateEmailPreview, 50);
       setUiStatus(`전체 문장을 ${styleLabels[style]} 적용했습니다.`, "done");
     } catch (error) {
@@ -156,7 +160,7 @@ export function NewsletterBuilder() {
       const response = await fetch("/api/images", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ newsletter, imageSeed: createImageSeed() }),
+        body: JSON.stringify({ newsletter: getEditedNewsletter(), imageSeed: createImageSeed() }),
       });
       const payload = (await response.json()) as { newsletter?: Newsletter; error?: string };
 
@@ -164,8 +168,10 @@ export function NewsletterBuilder() {
         throw new Error(payload.error ?? "이미지 새로고침에 실패했습니다.");
       }
 
-      setNewsletter(payload.newsletter);
-      editedNewsletterRef.current = payload.newsletter;
+      const nextNewsletter = payload.newsletter;
+      setNewsletter(nextNewsletter);
+      editedNewsletterRef.current = nextNewsletter;
+      setSelectedSectionId((current) => keepSelectedSection(current, nextNewsletter));
       window.setTimeout(updateEmailPreview, 50);
       setUiStatus("이미지를 새 조합으로 바꿨습니다.", "done");
     } catch (error) {
@@ -259,6 +265,42 @@ export function NewsletterBuilder() {
     }
 
     return editedNewsletterRef.current ?? newsletter;
+  }
+
+  const activeNewsletter = newsletter;
+  const selectedSection =
+    activeNewsletter?.sections.find((section) => section.id === selectedSectionId) ?? activeNewsletter?.sections[0] ?? null;
+
+  function commitNewsletter(next: Newsletter) {
+    editedNewsletterRef.current = next;
+    setNewsletter(next);
+    setEmailPreviewHtml(buildEmailHtml(next, subject));
+  }
+
+  function updateSelectedSection(patch: { title?: string; bodyText?: string }) {
+    if (!activeNewsletter || !selectedSection) {
+      return;
+    }
+
+    const next: Newsletter = {
+      ...activeNewsletter,
+      sections: activeNewsletter.sections.map((section) => {
+        if (section.id !== selectedSection.id) {
+          return section;
+        }
+
+        return {
+          ...section,
+          title: patch.title ?? section.title,
+          body:
+            patch.bodyText === undefined
+              ? section.body
+              : splitBodyText(patch.bodyText),
+        };
+      }),
+    };
+
+    commitNewsletter(next);
   }
 
   return (
@@ -399,6 +441,48 @@ export function NewsletterBuilder() {
                 />
               </div>
             </div>
+            <div className="rounded-[8px] border border-white/10 bg-white/[0.04] p-3">
+              <p className="mb-3 text-xs font-black uppercase tracking-[0.16em] text-zinc-500">내용 수정</p>
+              {selectedSection ? (
+                <div className="grid gap-3">
+                  <label className="block">
+                    <span className="mb-2 block text-[11px] font-black uppercase tracking-[0.14em] text-zinc-500">섹션 선택</span>
+                    <select
+                      value={selectedSection.id}
+                      onChange={(event) => setSelectedSectionId(event.target.value)}
+                      className="field-input h-11"
+                    >
+                      {activeNewsletter?.sections.map((section, index) => (
+                        <option key={section.id} value={section.id}>
+                          {String(index + 1).padStart(2, "0")} · {section.title}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block">
+                    <span className="mb-2 block text-[11px] font-black uppercase tracking-[0.14em] text-zinc-500">섹션 제목</span>
+                    <input
+                      value={selectedSection.title}
+                      onChange={(event) => updateSelectedSection({ title: event.target.value })}
+                      className="field-input"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="mb-2 block text-[11px] font-black uppercase tracking-[0.14em] text-zinc-500">본문 문장</span>
+                    <textarea
+                      value={selectedSection.body.join("\n")}
+                      onChange={(event) => updateSelectedSection({ bodyText: event.target.value })}
+                      rows={5}
+                      className="field-input resize-y leading-6"
+                    />
+                  </label>
+                </div>
+              ) : (
+                <p className="rounded-[8px] border border-white/10 bg-black/20 p-3 text-xs leading-5 text-zinc-500">
+                  이번 호를 만들면 섹션 제목과 본문을 바로 수정할 수 있습니다.
+                </p>
+              )}
+            </div>
             <div className="grid grid-cols-1 gap-2">
               <ActionButton
                 onClick={refreshImages}
@@ -462,6 +546,19 @@ export function NewsletterBuilder() {
 
 function createImageSeed() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function keepSelectedSection(current: string, newsletter: Newsletter) {
+  return newsletter.sections.some((section) => section.id === current) ? current : newsletter.sections[0]?.id ?? "";
+}
+
+function splitBodyText(value: string) {
+  const lines = value
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  return lines.length ? lines : [""];
 }
 
 function Field({ label, htmlFor, children }: { label: string; htmlFor: string; children: React.ReactNode }) {
