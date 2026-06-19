@@ -10,6 +10,11 @@ export function normalizeNewsletterSentence(text: string): string {
   let sentence = text.replace(/\s+/g, " ").trim();
   sentence = sentence.replace(/^[-•ㄴ\s]+/, "").trim();
   sentence = sentence.replace(/[.。]+$/g, "");
+  sentence = sentence
+    .replace(/했어요\s+소식/g, "한 소식")
+    .replace(/됐어요\s+소식/g, "된 소식")
+    .replace(/있어요\s+소식/g, "있는 소식")
+    .replace(/없어요\s+소식/g, "없는 소식");
 
   const replacements: Array<[RegExp, string]> = [
     [/했습니다$/g, "했어요"],

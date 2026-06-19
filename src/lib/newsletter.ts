@@ -142,10 +142,12 @@ function extractTopItems(text: string): string[] {
 
 function buildOneLine(bright: string[], next: string[]): string {
   if (bright.length) {
-    return `이번 호는 ${trimEndMark(bright[0])} 소식을 중심으로 전해드려요.`;
+    const topic = extractTopic(bright[0]);
+    return `이번 호는 ${topic}${objectParticle(topic)} 중심으로 전해드려요.`;
   }
   if (next.length) {
-    return `이번 호는 ${trimEndMark(next[0])}를 중심으로 전해드려요.`;
+    const topic = extractTopic(next[0]);
+    return `이번 호는 ${topic}${objectParticle(topic)} 중심으로 전해드려요.`;
   }
   return `${TEAM_NAME}의 최근 2주 진행 상황을 보기 좋게 정리했어요.`;
 }
@@ -162,6 +164,36 @@ function toNewsletterSentence(text: string): string {
 
 function trimEndMark(text: string): string {
   return text.replace(/[.!?。]$/, "");
+}
+
+function extractTopic(text: string): string {
+  const sentence = trimEndMark(text).replace(/\s+/g, " ").trim();
+  const subject = sentence.match(/^(.{3,35}?)(?:은|는)\s/);
+  if (subject) {
+    return subject[1].trim();
+  }
+
+  return sentence
+    .replace(/(?:했어요|됐어요|있어요|없어요|이에요|예요)$/g, "")
+    .replace(/\s*(?:소식|건|작업|과제)$/g, (match) => match.trim())
+    .trim()
+    .slice(0, 36);
+}
+
+function objectParticle(text: string): string {
+  return hasFinalConsonant(text.at(-1) ?? "") ? "을" : "를";
+}
+
+function hasFinalConsonant(char: string): boolean {
+  const code = char.charCodeAt(0);
+  const hangulStart = 0xac00;
+  const hangulEnd = 0xd7a3;
+
+  if (code < hangulStart || code > hangulEnd) {
+    return false;
+  }
+
+  return (code - hangulStart) % 28 !== 0;
 }
 
 function imagePrompt(prompt: string): string {
