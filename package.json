@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "gmail:oauth": "node scripts/gmail-oauth.mjs",
     "start": "next start",
     "lint": "eslint"
   },

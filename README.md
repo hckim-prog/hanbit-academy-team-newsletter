@@ -60,7 +60,7 @@ GMAIL_SENDER_EMAIL=sender@example.com
 ACADEMY_NEWSLETTER_RECIPIENTS=member1@example.com,member2@example.com
 ```
 
-OpenAI 이미지 생성이 billing hard limit, quota, model access 문제로 실패하면 앱은 뉴스레터가 깨지지 않도록 SVG 대체 이미지를 표시합니다. 결제 한도 또는 모델 접근 권한이 정상화되면 같은 버튼으로 실제 생성 이미지가 들어갑니다.
+OpenAI 이미지 생성이 billing hard limit, quota, model access 문제로 실패하면 앱은 뉴스레터가 깨지지 않도록 본문 키워드 기반의 실사진을 자동으로 표시합니다. 결제 한도 또는 모델 접근 권한이 정상화되면 같은 버튼으로 AI 생성 실사진 스타일 이미지가 들어갑니다.
 
 Google Sheet가 비공개라면 서비스 계정을 만들고 원본 스프레드시트에 해당 서비스 계정 이메일을 보기 권한으로 공유하세요.
 
@@ -85,9 +85,24 @@ Vercel 앱에서 Gmail 임시보관함 생성 또는 실제 발송을 하려면 
 1. Google Cloud Console에서 `Gmail API`를 사용 설정합니다.
 2. `API 및 서비스 > OAuth 동의 화면`을 설정합니다.
 3. `API 및 서비스 > 사용자 인증 정보 > 사용자 인증 정보 만들기 > OAuth 클라이언트 ID`를 만듭니다.
-4. 앱 유형은 `데스크톱 앱`으로 만들어도 됩니다.
+4. 앱 유형은 `웹 애플리케이션`으로 만들고, 승인된 리디렉션 URI에 아래 값을 추가합니다.
+
+```text
+http://localhost:3333/oauth2callback
+```
+
 5. OAuth client의 `client_id`, `client_secret`을 확보합니다.
-6. Gmail scope는 아래 중 필요한 범위로 refresh token을 발급합니다.
+6. 로컬 PowerShell에서 아래처럼 refresh token을 발급합니다.
+
+```powershell
+$env:GMAIL_CLIENT_ID="Google Cloud에서 복사한 Client ID"
+$env:GMAIL_CLIENT_SECRET="Google Cloud에서 복사한 Client secret"
+npm run gmail:oauth
+```
+
+브라우저에 표시되는 Google 로그인 화면에서 발송에 사용할 Gmail 계정으로 승인하면 터미널에 `GMAIL_REFRESH_TOKEN` 값이 출력됩니다.
+
+7. Gmail scope는 아래 범위를 사용합니다.
 
 ```text
 https://www.googleapis.com/auth/gmail.send
@@ -98,7 +113,7 @@ https://www.googleapis.com/auth/gmail.compose
 
 - `Gmail 임시보관함`: Gmail Draft를 만듭니다.
 - `Gmail 발송`: 발송 확인 체크가 켜져 있을 때만 실제 발송합니다.
-- 수신자는 `Bcc`에 넣고, `To`는 `GMAIL_SENDER_EMAIL`로 설정합니다.
+- 수신자는 `Bcc`에 넣고, 발송 계정은 Gmail OAuth 프로필에서 자동으로 확인합니다.
 
 Vercel에 필요한 값:
 
@@ -106,8 +121,9 @@ Vercel에 필요한 값:
 GMAIL_CLIENT_ID
 GMAIL_CLIENT_SECRET
 GMAIL_REFRESH_TOKEN
-GMAIL_SENDER_EMAIL
 ```
+
+`GMAIL_SENDER_EMAIL`은 선택입니다. 비워두면 OAuth로 연결된 Gmail 계정을 자동 사용합니다.
 
 ## 운영 흐름
 
