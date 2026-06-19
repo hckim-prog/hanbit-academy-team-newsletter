@@ -64,3 +64,10 @@ body {
 .section-sun {
   background: #ffd866;
 }
+
+.review-comment-highlight {
+  background: #fff3a3;
+  border-bottom: 2px solid #ff6b4a;
+  border-radius: 3px;
+  padding: 0 2px;
+}

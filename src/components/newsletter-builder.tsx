@@ -9,8 +9,10 @@ import {
   Loader2,
   Mail,
   MailCheck,
+  MessageSquarePlus,
   Send,
   Sparkles,
+  Trash2,
   WandSparkles,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -30,6 +32,12 @@ type GmailStatus = {
   missing: string[];
 };
 
+type ReviewComment = {
+  id: string;
+  text: string;
+  note: string;
+};
+
 export function NewsletterBuilder() {
   const [newsletter, setNewsletter] = useState<Newsletter | null>(null);
   const [status, setStatus] = useState("대기 중입니다.");
@@ -40,6 +48,10 @@ export function NewsletterBuilder() {
   const [recipients, setRecipients] = useState("");
   const [sendConfirmed, setSendConfirmed] = useState(false);
   const [gmailStatus, setGmailStatus] = useState<GmailStatus | null>(null);
+  const [emailPreviewHtml, setEmailPreviewHtml] = useState("");
+  const [selectedText, setSelectedText] = useState("");
+  const [reviewNote, setReviewNote] = useState("");
+  const [reviewComments, setReviewComments] = useState<ReviewComment[]>([]);
   const previewRef = useRef<HTMLElement>(null);
 
   function setUiStatus(message: string, kind: keyof typeof statusTone = "idle") {
@@ -90,6 +102,10 @@ export function NewsletterBuilder() {
 
       setNewsletter(payload.newsletter);
       setSubject(payload.newsletter.subject);
+      setReviewComments([]);
+      setReviewNote("");
+      setSelectedText("");
+      window.setTimeout(updateEmailPreview, 50);
       setUiStatus("초안을 만들었습니다. 미리보기 본문을 눌러 바로 수정할 수 있어요.", "done");
     } catch (error) {
       setUiStatus(error instanceof Error ? error.message : "오류가 발생했습니다.", "error");
@@ -170,9 +186,80 @@ export function NewsletterBuilder() {
     }
   }
 
+  function updateEmailPreview() {
+    setEmailPreviewHtml(buildEmailHtml(previewRef.current?.innerHTML ?? "", { includeReviewMarks: true }));
+  }
+
+  function captureSelection() {
+    const selection = window.getSelection();
+    const text = selection?.toString().trim() ?? "";
+    if (!text || !previewRef.current || !selection?.rangeCount) {
+      return;
+    }
+
+    const range = selection.getRangeAt(0);
+    const container = range.commonAncestorContainer;
+    if (!previewRef.current.contains(container.nodeType === Node.TEXT_NODE ? container.parentElement : container)) {
+      return;
+    }
+
+    setSelectedText(text.slice(0, 120));
+  }
+
+  function addReviewComment() {
+    const selection = window.getSelection();
+    const note = reviewNote.trim();
+    if (!note || !selection?.rangeCount || !previewRef.current) {
+      setUiStatus("주석을 달 문장을 드래그하고 메모를 입력해 주세요.", "error");
+      return;
+    }
+
+    const range = selection.getRangeAt(0);
+    if (range.collapsed) {
+      setUiStatus("주석을 달 문장을 먼저 선택해 주세요.", "error");
+      return;
+    }
+
+    const container = range.commonAncestorContainer;
+    if (!previewRef.current.contains(container.nodeType === Node.TEXT_NODE ? container.parentElement : container)) {
+      setUiStatus("뉴스레터 본문 안의 문장을 선택해 주세요.", "error");
+      return;
+    }
+
+    const id = `c-${Date.now()}`;
+    const text = selection.toString().trim();
+    const mark = document.createElement("span");
+    mark.className = "review-comment-highlight";
+    mark.dataset.commentId = id;
+    mark.title = note;
+
+    try {
+      range.surroundContents(mark);
+    } catch {
+      mark.append(range.extractContents());
+      range.insertNode(mark);
+    }
+
+    selection.removeAllRanges();
+    setReviewComments((items) => [...items, { id, text, note }]);
+    setReviewNote("");
+    setSelectedText("");
+    updateEmailPreview();
+    setUiStatus("선택한 문장에 검수 주석을 달았습니다. 발송본에서는 주석 표시가 빠집니다.", "done");
+  }
+
+  function removeReviewComment(id: string) {
+    const mark = previewRef.current?.querySelector(`[data-comment-id="${id}"]`);
+    if (mark) {
+      mark.replaceWith(...Array.from(mark.childNodes));
+    }
+    setReviewComments((items) => items.filter((item) => item.id !== id));
+    updateEmailPreview();
+  }
+
   return (
     <main className="min-h-screen bg-[#111111] text-[#f6f1e8]">
-      <div className="grid min-h-screen grid-cols-[420px_1fr] max-[1040px]:block">
+      <div className="grid min-h-screen grid-cols-[420px_minmax(0,1fr)_380px] max-[1280px]:grid-cols-[360px_minmax(0,1fr)] max-[1040px]:block">
         <aside className="sticky top-0 h-screen overflow-auto border-r border-white/10 bg-[#111111] p-5 max-[1040px]:static max-[1040px]:h-auto max-[1040px]:border-b max-[1040px]:border-r-0">
           <div className="mb-5 flex items-center justify-between border-b border-white/10 pb-4">
             <div>
@@ -329,8 +416,25 @@ export function NewsletterBuilder() {
         </aside>
 
         <section className="min-h-screen bg-[#efebe1] p-8 text-[#141414] max-[720px]:p-4">
-          <NewsletterPreview newsletter={newsletter} subject={subject} previewRef={previewRef} />
+          <NewsletterPreview
+            newsletter={newsletter}
+            subject={subject}
+            previewRef={previewRef}
+            onInput={updateEmailPreview}
+            onMouseUp={captureSelection}
+            onKeyUp={captureSelection}
+          />
         </section>
+        <ReviewPanel
+          newsletter={newsletter}
+          emailPreviewHtml={emailPreviewHtml}
+          selectedText={selectedText}
+          reviewNote={reviewNote}
+          comments={reviewComments}
+          onNoteChange={setReviewNote}
+          onAddComment={addReviewComment}
+          onRemoveComment={removeReviewComment}
+        />
       </div>
     </main>
   );
@@ -380,10 +484,16 @@ function NewsletterPreview({
   newsletter,
   subject,
   previewRef,
+  onInput,
+  onMouseUp,
+  onKeyUp,
 }: {
   newsletter: Newsletter | null;
   subject: string;
   previewRef: React.RefObject<HTMLElement | null>;
+  onInput: () => void;
+  onMouseUp: () => void;
+  onKeyUp: () => void;
 }) {
   if (!newsletter) {
     return (
@@ -424,6 +534,9 @@ function NewsletterPreview({
       ref={previewRef}
       contentEditable
       suppressContentEditableWarning
+      onInput={onInput}
+      onMouseUp={onMouseUp}
+      onKeyUp={onKeyUp}
       className="newsletter mx-auto max-w-6xl overflow-hidden rounded-[8px] border border-black/10 bg-[#f7f3e9] shadow-[0_30px_90px_rgba(20,20,20,0.16)] outline-none focus:ring-4 focus:ring-[#d7ff64]/60"
       aria-label="뉴스레터 편집 영역"
     >
@@ -488,7 +601,108 @@ function NewsletterPreview({
   );
 }
 
-function buildEmailHtml(innerHtml: string) {
+function ReviewPanel({
+  newsletter,
+  emailPreviewHtml,
+  selectedText,
+  reviewNote,
+  comments,
+  onNoteChange,
+  onAddComment,
+  onRemoveComment,
+}: {
+  newsletter: Newsletter | null;
+  emailPreviewHtml: string;
+  selectedText: string;
+  reviewNote: string;
+  comments: ReviewComment[];
+  onNoteChange: (value: string) => void;
+  onAddComment: () => void;
+  onRemoveComment: (id: string) => void;
+}) {
+  return (
+    <aside className="sticky top-0 h-screen overflow-auto border-l border-white/10 bg-[#151515] p-4 text-[#f6f1e8] max-[1280px]:col-span-2 max-[1280px]:h-auto max-[1280px]:border-l-0 max-[1280px]:border-t max-[1040px]:static">
+      <div className="mb-4 flex items-center justify-between border-b border-white/10 pb-3">
+        <div>
+          <p className="text-[11px] font-black uppercase tracking-[0.18em] text-[#d7ff64]">Send Preview</p>
+          <h2 className="mt-1 text-xl font-black">발송본 검수</h2>
+        </div>
+        <span className="rounded-full border border-white/10 px-2.5 py-1 text-[11px] font-black text-zinc-400">720px</span>
+      </div>
+
+      <div className="rounded-[8px] border border-white/10 bg-white p-2">
+        {newsletter && emailPreviewHtml ? (
+          <iframe
+            title="Gmail 발송 미리보기"
+            srcDoc={emailPreviewHtml}
+            className="h-[420px] w-full rounded-[6px] bg-[#efebe1]"
+            sandbox=""
+          />
+        ) : (
+          <div className="grid h-[420px] place-items-center rounded-[6px] bg-[#efebe1] px-8 text-center text-sm font-bold leading-6 text-zinc-500">
+            이번 호를 만들면 실제 Gmail 발송 크기의 미리보기가 여기에 표시됩니다.
+          </div>
+        )}
+      </div>
+
+      <section className="mt-4 rounded-[8px] border border-white/10 bg-white/[0.04] p-4">
+        <div className="mb-3 flex items-center gap-2 text-sm font-black">
+          <MessageSquarePlus size={17} />
+          주석 달기
+        </div>
+        <p className="mb-2 min-h-10 rounded-[8px] border border-white/10 bg-black/20 p-3 text-xs leading-5 text-zinc-400">
+          {selectedText ? `선택: ${selectedText}` : "가운데 본문에서 문장을 드래그해 선택하세요."}
+        </p>
+        <textarea
+          value={reviewNote}
+          onChange={(event) => onNoteChange(event.target.value)}
+          rows={3}
+          placeholder="수정 의견을 입력하세요"
+          className="field-input resize-y leading-6"
+        />
+        <button
+          type="button"
+          onClick={onAddComment}
+          disabled={!newsletter || !reviewNote.trim()}
+          className="mt-2 flex min-h-10 w-full items-center justify-center gap-2 rounded-[8px] border border-[#d7ff64] bg-[#d7ff64] px-3 py-2 text-xs font-black text-[#111111] transition hover:bg-[#e5ff8f] disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <MessageSquarePlus size={15} />
+          선택 문장에 주석
+        </button>
+      </section>
+
+      <section className="mt-4 grid gap-2">
+        <p className="text-xs font-black uppercase tracking-[0.16em] text-zinc-500">Comments {comments.length}</p>
+        {comments.length ? (
+          comments.map((comment, index) => (
+            <article key={comment.id} className="rounded-[8px] border border-white/10 bg-white/[0.04] p-3">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <span className="text-[11px] font-black text-[#d7ff64]">#{index + 1}</span>
+                <button
+                  type="button"
+                  onClick={() => onRemoveComment(comment.id)}
+                  className="rounded-[6px] border border-white/10 p-1.5 text-zinc-400 transition hover:bg-white/[0.08] hover:text-white"
+                  aria-label="주석 삭제"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+              <p className="mb-2 text-xs leading-5 text-zinc-500">{comment.text}</p>
+              <p className="text-sm leading-6 text-zinc-100">{comment.note}</p>
+            </article>
+          ))
+        ) : (
+          <p className="rounded-[8px] border border-white/10 bg-white/[0.04] p-3 text-xs leading-5 text-zinc-500">
+            아직 주석이 없습니다. 검수 중 수정할 문장을 선택해 메모를 남겨보세요.
+          </p>
+        )}
+      </section>
+    </aside>
+  );
+}
+
+function buildEmailHtml(innerHtml: string, options: { includeReviewMarks?: boolean } = {}) {
+  const safeInnerHtml = options.includeReviewMarks ? innerHtml : stripReviewComments(innerHtml);
   return `<!doctype html>
 <html lang="ko">
   <head>
@@ -506,13 +720,26 @@ function buildEmailHtml(innerHtml: string) {
       h2{font-size:34px;line-height:1.12;margin:0} h3{font-size:22px;line-height:1.3;margin:0 0 14px}
       p,li{font-size:15px;line-height:1.72}.section p:first-child{color:#ff6b4a;font-size:11px;font-weight:900;letter-spacing:.08em;text-transform:uppercase}
       footer{background:#141414;color:#efebe1;padding:24px} footer p{margin:0;font-size:18px;font-weight:700;line-height:1.6}
+      .review-comment-highlight{background:#fff3a3;color:inherit;border-bottom:2px solid #ff6b4a}
       @media screen and (max-width:760px){.newsletter{width:100%!important;max-width:100%!important}.email-shell{padding:0}.hero{padding:24px}.hero img{max-width:100%;max-height:260px}h2{font-size:30px}.section{padding:20px}}
     </style>
   </head>
   <body>
     <div class="email-shell">
-      <div class="newsletter">${innerHtml}</div>
+      <div class="newsletter">${safeInnerHtml}</div>
     </div>
   </body>
 </html>`;
+}
+
+function stripReviewComments(innerHtml: string) {
+  if (typeof DOMParser === "undefined") {
+    return innerHtml;
+  }
+
+  const document = new DOMParser().parseFromString(`<div>${innerHtml}</div>`, "text/html");
+  document.querySelectorAll(".review-comment-highlight").forEach((node) => {
+    node.replaceWith(...Array.from(node.childNodes));
+  });
+  return document.body.firstElementChild?.innerHTML ?? innerHtml;
 }
