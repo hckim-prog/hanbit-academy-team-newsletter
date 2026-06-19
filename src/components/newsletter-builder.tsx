@@ -68,6 +68,11 @@ export function NewsletterBuilder() {
     refreshGmailStatus();
   }, [refreshGmailStatus]);
 
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setEmailPreviewHtml(newsletter ? buildEmailHtml(newsletter, subject) : "");
+  }, [newsletter, subject]);
+
   async function disconnectGmail() {
     await fetch("/api/gmail/disconnect", { method: "POST" });
     await refreshGmailStatus();
@@ -165,7 +170,7 @@ export function NewsletterBuilder() {
     if (!newsletter) {
       return;
     }
-    await navigator.clipboard.writeText(buildEmailHtml(previewRef.current?.innerHTML ?? ""));
+    await navigator.clipboard.writeText(buildEmailHtml(newsletter, subject));
     setUiStatus("HTML을 클립보드에 복사했습니다.", "done");
   }
 
@@ -173,7 +178,7 @@ export function NewsletterBuilder() {
     if (!newsletter) {
       return;
     }
-    const html = buildEmailHtml(previewRef.current?.innerHTML ?? "");
+    const html = buildEmailHtml(newsletter, subject);
     const blob = new Blob([html], { type: "text/html;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
@@ -204,7 +209,7 @@ export function NewsletterBuilder() {
         body: JSON.stringify({
           recipients,
           subject,
-          html: buildEmailHtml(previewRef.current?.innerHTML ?? ""),
+          html: buildEmailHtml(newsletter, subject),
           mode,
           confirmed: sendConfirmed,
         }),
@@ -234,7 +239,9 @@ export function NewsletterBuilder() {
   }
 
   function updateEmailPreview() {
-    setEmailPreviewHtml(buildEmailHtml(previewRef.current?.innerHTML ?? ""));
+    if (newsletter) {
+      setEmailPreviewHtml(buildEmailHtml(newsletter, subject));
+    }
   }
 
   return (
@@ -613,7 +620,30 @@ function EmailPreviewPanel({
   );
 }
 
-function buildEmailHtml(innerHtml: string) {
+function buildEmailHtml(newsletter: Newsletter, subject: string) {
+  const sectionRows = newsletter.sections
+    .map((section, index) => {
+      const body =
+        section.body.length === 1
+          ? `<p style="margin:0;color:#2a2a2a;font-size:16px;line-height:1.75;">${escapeHtml(section.body[0])}</p>`
+          : `<ul style="margin:0;padding:0 0 0 18px;color:#2a2a2a;font-size:15px;line-height:1.7;">${section.body
+              .map((item) => `<li style="margin:0 0 8px 0;">${escapeHtml(item)}</li>`)
+              .join("")}</ul>`;
+
+      return `
+        <tr>
+          <td style="border-top:1px solid #ddd6c8;background:#f7f3e9;">
+            ${section.imageUrl ? emailImage(section.imageUrl, `${index + 1}. ${section.title}`, 720, 180) : ""}
+            <div style="padding:22px 28px 26px 28px;">
+              <p style="margin:0 0 12px 0;color:#ff6b4a;font-size:11px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;">${String(index + 1).padStart(2, "0")} · ${escapeHtml(section.eyebrow)}</p>
+              <h3 style="margin:0 0 14px 0;color:#141414;font-size:24px;line-height:1.25;font-weight:900;">${escapeHtml(section.title)}</h3>
+              ${body}
+            </div>
+          </td>
+        </tr>`;
+    })
+    .join("");
+
   return `<!doctype html>
 <html lang="ko">
   <head>
@@ -622,28 +652,52 @@ function buildEmailHtml(innerHtml: string) {
     <title>디지털콘텐츠전환TF 뉴스레터</title>
     <style>
       body{margin:0;background:#efebe1;color:#141414;font-family:Arial,"Apple SD Gothic Neo","Malgun Gothic",sans-serif}
-      .email-shell{width:100%;padding:20px 0;background:#efebe1}
-      .newsletter{width:720px;max-width:720px;margin:0 auto;border:1px solid #d9d2c4;border-radius:8px;overflow:hidden;background:#f7f3e9}
-      .newsletter>.newsletter{width:100%;max-width:100%;border:0;border-radius:0;box-shadow:none}
-      .hero{background:#141414!important;color:#efebe1!important;display:block!important;border-bottom:1px solid #2a2a2a!important}
-      .hero>div:first-child{background:#141414!important;color:#efebe1!important;padding:30px!important;display:block!important}
-      .hero>div:last-child{background:#141414!important;padding:0!important;display:block!important;min-height:0!important}
-      .hero img{width:100%!important;max-width:none!important;height:auto!important;max-height:340px!important;border-radius:0!important;margin:0!important;object-fit:cover!important;display:block!important}
-      .section{margin:0!important;border-top:1px solid #d9d2c4!important;background:#f7f3e9!important;padding:0!important;display:grid!important;grid-template-columns:220px 1fr!important}
-      .section>div:first-child{position:relative!important;min-height:220px!important;overflow:hidden!important;border-right:1px solid #d9d2c4!important;padding:0!important;background:#f7f3e9!important}
-      .section>div:first-child p{position:absolute!important;left:14px!important;top:14px!important;z-index:2!important;margin:0!important;border-radius:999px!important;background:rgba(20,20,20,.62)!important;color:#fff!important;padding:4px 9px!important;font-size:11px!important;font-weight:900!important;line-height:1.2!important;letter-spacing:.08em!important}
-      .section>div:first-child img{position:absolute!important;inset:0!important;width:100%!important;height:100%!important;max-width:none!important;max-height:none!important;border-radius:0!important;object-fit:cover!important;display:block!important;margin:0!important}
-      .section>div:last-child{padding:24px!important}
-      h2{font-size:34px;line-height:1.12;margin:0} h3{font-size:22px;line-height:1.3;margin:0 0 14px}
-      p,li{font-size:15px;line-height:1.72}.section p:first-child{color:#ff6b4a;font-size:11px;font-weight:900;letter-spacing:.08em;text-transform:uppercase}
-      footer{background:#141414;color:#efebe1;padding:24px} footer p{margin:0;font-size:18px;font-weight:700;line-height:1.6}
-      @media screen and (max-width:760px){.newsletter{width:100%!important;max-width:100%!important}.email-shell{padding:0}.hero>div:first-child{padding:24px!important}.hero img{max-height:260px!important}h2{font-size:30px}.section{display:block!important}.section>div:first-child{min-height:190px!important;border-right:0!important;border-bottom:1px solid #d9d2c4!important}.section>div:last-child{padding:20px!important}}
+      img{border:0;outline:none;text-decoration:none}
+      @media screen and (max-width:760px){.email-shell{padding:0!important}.email-card{width:100%!important}.email-pad{padding-left:22px!important;padding-right:22px!important}.email-title{font-size:34px!important}.email-image{height:auto!important;max-height:260px!important}}
     </style>
   </head>
   <body>
-    <div class="email-shell">
-      <div class="newsletter">${innerHtml}</div>
-    </div>
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" class="email-shell" style="width:100%;background:#efebe1;padding:24px 0;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="720" cellspacing="0" cellpadding="0" border="0" class="email-card" style="width:720px;max-width:720px;border-collapse:collapse;background:#f7f3e9;border:1px solid #d9d2c4;">
+            <tr>
+              <td style="background:#141414;color:#efebe1;">
+                <div class="email-pad" style="padding:30px 32px 22px 32px;">
+                  <p style="margin:0 0 14px 0;color:#d7ff64;font-size:13px;font-weight:800;line-height:1.5;">${escapeHtml(subject || newsletter.subject)}</p>
+                  <h1 class="email-title" style="margin:0;color:#f6f1e8;font-size:42px;line-height:1.08;font-weight:900;letter-spacing:0;">${escapeHtml(newsletter.heroTitle)}</h1>
+                </div>
+                ${newsletter.heroImageUrl ? emailImage(newsletter.heroImageUrl, newsletter.heroTitle, 720, 280) : ""}
+              </td>
+            </tr>
+            ${sectionRows}
+            <tr>
+              <td style="background:#141414;color:#efebe1;padding:24px 28px;">
+                <p style="margin:0 0 10px 0;color:#d7ff64;font-size:11px;font-weight:900;letter-spacing:0.14em;text-transform:uppercase;">Next issue</p>
+                <p style="margin:0;color:#f6f1e8;font-size:18px;line-height:1.6;font-weight:700;">${escapeHtml(newsletter.closing)}</p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
   </body>
 </html>`;
+}
+
+function emailImage(src: string, alt: string, width: number, height: number) {
+  return `<img class="email-image" src="${escapeAttribute(src)}" alt="${escapeAttribute(alt)}" width="${width}" height="${height}" style="display:block;width:100%;max-width:${width}px;height:${height}px;object-fit:cover;border:0;margin:0;padding:0;">`;
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function escapeAttribute(value: string) {
+  return escapeHtml(value).replace(/`/g, "&#96;");
 }

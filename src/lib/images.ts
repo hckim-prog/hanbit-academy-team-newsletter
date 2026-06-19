@@ -90,83 +90,80 @@ function addFallbackPhotos(newsletter: Newsletter, imageSeed: string): Newslette
 
 function realPhotoUrl(source: string, salt: string): string {
   const lock = stableHash(`${salt}:${source}`);
-  const keywordGroups = photoKeywordGroups(source);
-  const keywords = keywordGroups[lock % keywordGroups.length];
-  const provider = lock % 5;
-
-  if (provider === 0) {
-    return `https://picsum.photos/seed/hanbit-${lock}/1200/800`;
-  }
-
-  return `https://loremflickr.com/1200/800/${keywords.join(",")}/all?lock=${lock}`;
+  const photos = curatedPhotoUrls(source);
+  return photos[lock % photos.length];
 }
 
-function photoKeywordGroups(source: string): string[][] {
+function curatedPhotoUrls(source: string): string[] {
   const normalized = source.toLowerCase();
-  const dictionary: Array<[RegExp, string[][]]> = [
+  const dictionary: Array<[RegExp, string[]]> = [
     [
       /세미나|seminar|webinar|online|class|lecture/,
       [
-        ["business", "conference", "meeting"],
-        ["office", "presentation", "auditorium"],
-        ["technology", "conference", "speaker"],
-        ["korean", "business", "meeting"],
+        unsplash("photo-1559223607-a43c990c692c"),
+        unsplash("photo-1517245386807-bb43f82c33c4"),
+        unsplash("photo-1556761175-b413da4baf72"),
+        unsplash("photo-1516321318423-f06f85e504b3"),
       ],
     ],
     [
       /교재|교과서|book|textbook|콘텐츠|content/,
       [
-        ["books", "office", "technology"],
-        ["publishing", "desk", "laptop"],
-        ["library", "computer", "workspace"],
-        ["tablet", "book", "office"],
+        unsplash("photo-1516321318423-f06f85e504b3"),
+        unsplash("photo-1456513080510-7bf3a84b82f8"),
+        unsplash("photo-1497366811353-6870744d04b2"),
+        unsplash("photo-1484480974693-6ca0a78fb36b"),
       ],
     ],
     [
       /ai|인공지능|data|데이터|cloud|digital|디지털/,
       [
-        ["technology", "computer", "office"],
-        ["data", "dashboard", "laptop"],
-        ["software", "workspace", "screen"],
-        ["artificial-intelligence", "business", "computer"],
+        unsplash("photo-1516321318423-f06f85e504b3"),
+        unsplash("photo-1460925895917-afdab827c52f"),
+        unsplash("photo-1498050108023-c5249f4df085"),
+        unsplash("photo-1551434678-e076c223a692"),
       ],
     ],
     [
       /영업|sales|field|현장|catalog|catalogue/,
       [
-        ["business", "meeting", "office"],
-        ["sales", "presentation", "laptop"],
-        ["workshop", "booth", "business"],
-        ["conference", "networking", "office"],
+        unsplash("photo-1556761175-b413da4baf72"),
+        unsplash("photo-1552664730-d307ca884978"),
+        unsplash("photo-1517245386807-bb43f82c33c4"),
+        unsplash("photo-1497366754035-f200968a6e72"),
       ],
     ],
     [
       /검수|quality|check|리스크|risk|link|file|calendar/,
       [
-        ["workspace", "laptop", "planning"],
-        ["checklist", "desk", "computer"],
-        ["calendar", "office", "laptop"],
-        ["document", "review", "workspace"],
+        unsplash("photo-1484480974693-6ca0a78fb36b"),
+        unsplash("photo-1497366811353-6870744d04b2"),
+        unsplash("photo-1516321318423-f06f85e504b3"),
+        unsplash("photo-1460925895917-afdab827c52f"),
       ],
     ],
     [
       /협업|feedback|review|공유|team|coworker/,
       [
-        ["teamwork", "office", "business"],
-        ["collaboration", "meeting", "laptop"],
-        ["coworking", "workshop", "office"],
-        ["business", "discussion", "workspace"],
+        unsplash("photo-1552664730-d307ca884978"),
+        unsplash("photo-1556761175-b413da4baf72"),
+        unsplash("photo-1517245386807-bb43f82c33c4"),
+        unsplash("photo-1521737604893-d14cc237f11d"),
       ],
     ],
   ];
 
   const matched = dictionary.find(([pattern]) => pattern.test(normalized));
   return matched?.[1] ?? [
-    ["korean", "office", "technology"],
-    ["business", "workspace", "laptop"],
-    ["books", "desk", "computer"],
-    ["conference", "office", "presentation"],
+    unsplash("photo-1497366754035-f200968a6e72"),
+    unsplash("photo-1497366811353-6870744d04b2"),
+    unsplash("photo-1516321318423-f06f85e504b3"),
+    unsplash("photo-1556761175-b413da4baf72"),
   ];
+}
+
+function unsplash(id: string): string {
+  return `https://images.unsplash.com/${id}?auto=format&fit=crop&w=1200&h=800&q=80`;
 }
 
 function stableHash(value: string): number {
