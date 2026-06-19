@@ -107,7 +107,7 @@ export function NewsletterBuilder() {
     }
 
     setIsLoading(true);
-    setUiStatus("GitHub 인기 교정 도구의 방향을 참고해 뉴스레터 문장체를 다듬는 중입니다.", "working");
+    setUiStatus("문장을 짧고 일관된 요체로 다듬는 중입니다.", "working");
 
     try {
       const response = await fetch("/api/polish", {
@@ -123,7 +123,7 @@ export function NewsletterBuilder() {
 
       setNewsletter(payload.newsletter);
       window.setTimeout(updateEmailPreview, 50);
-      setUiStatus("문장체를 더 읽기 좋게 다듬었습니다.", "done");
+      setUiStatus("명사형 문장을 줄이고, 짧은 요체 문장으로 다듬었습니다.", "done");
     } catch (error) {
       setUiStatus(error instanceof Error ? error.message : "문장체 다듬기 중 오류가 발생했습니다.", "error");
     } finally {
@@ -354,7 +354,7 @@ export function NewsletterBuilder() {
                 onClick={polishWriting}
                 disabled={!newsletter || isLoading}
                 icon={<Sparkles size={17} />}
-                label="문장체 다듬기"
+                label="간결하게 다듬기"
               />
               <ActionButton
                 onClick={refreshImages}

@@ -13,13 +13,32 @@ export async function polishNewsletter(newsletter: Newsletter): Promise<Newslett
       {
         role: "system",
         content:
-          "You polish Korean internal newsletters. Keep facts, dates, names, numbers, and section meanings unchanged. Make the tone warm, concise, lively, and professional for Hanbit Academy members. Remove duplicate phrasing. Do not add new facts.",
+          [
+            "You polish Korean internal newsletters for Hanbit Academy members.",
+            "Keep facts, dates, names, numbers, and section meanings unchanged. Do not add new facts.",
+            "Rewrite body sentences in a consistent friendly-professional Korean 요체.",
+            "Do not mix report-style nominal endings such as 진행, 완료, 예정, 검토, 확인, 필요, 요청, 공유 as sentence endings.",
+            "Turn those nominal endings into natural predicates such as 진행했어요, 완료했어요, 예정이에요, 검토하고 있어요, 확인했어요, 필요해요, 요청드려요, 공유해요.",
+            "Make every body sentence short and easy to scan. Prefer 1 sentence under 45 Korean characters; use 2 short sentences if needed.",
+            "Remove duplicate wording, repeated dates, and repeated newsletter titles.",
+            "Avoid long compound clauses. Split them into separate simple sentences.",
+            "Keep a warm, lively, concise tone. Do not become childish.",
+          ].join(" "),
       },
       {
         role: "user",
         content: JSON.stringify({
           instruction:
-            "Polish only heroTitle, section titles, section body sentences, and closing. Keep ids, tones, image prompts, image urls, subject, sourceDate, and metadata unchanged. Return valid JSON only with keys heroTitle, sections, closing. sections must be array of {id,title,body}.",
+            [
+              "Polish only heroTitle, section titles, section body sentences, and closing.",
+              "Keep ids, tones, image prompts, image urls, subject, sourceDate, and metadata unchanged.",
+              "For section body arrays, you may split one long item into multiple shorter bullet items.",
+              "Each body item should be one clear sentence whenever possible.",
+              "All body items should end naturally in 요체, for example ~해요, ~했어요, ~예정이에요, ~필요해요, ~좋아요.",
+              "Do not end body items with bare nouns or report fragments.",
+              "Return valid JSON only with keys heroTitle, sections, closing.",
+              "sections must be array of {id,title,body}.",
+            ].join(" "),
           newsletter,
         }),
       },
