@@ -15,8 +15,8 @@ type GmailResult = {
 };
 
 export async function deliverNewsletterViaGmail(payload: GmailPayload): Promise<GmailResult> {
-  const sender = requiredEnv("GMAIL_SENDER_EMAIL");
   const accessToken = await getGmailAccessToken();
+  const sender = process.env.GMAIL_SENDER_EMAIL || (await getGmailProfileEmail(accessToken));
   const raw = createMimeMessage({
     from: sender,
     to: sender,
@@ -79,6 +79,7 @@ function createMimeMessage({
 }
 
 async function getGmailAccessToken() {
+  assertGmailConfig();
   const client = new OAuth2Client(
     requiredEnv("GMAIL_CLIENT_ID"),
     requiredEnv("GMAIL_CLIENT_SECRET"),
@@ -91,6 +92,33 @@ async function getGmailAccessToken() {
   }
 
   return token.token;
+}
+
+async function getGmailProfileEmail(accessToken: string) {
+  const response = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/profile", {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(`Gmail 발송 계정 확인 실패: ${detail.slice(0, 500)}`);
+  }
+
+  const profile = (await response.json()) as { emailAddress?: string };
+  if (!profile.emailAddress) {
+    throw new Error("Gmail 발송 계정 이메일을 확인하지 못했습니다.");
+  }
+
+  return profile.emailAddress;
+}
+
+function assertGmailConfig() {
+  const missing = ["GMAIL_CLIENT_ID", "GMAIL_CLIENT_SECRET", "GMAIL_REFRESH_TOKEN"].filter((name) => !process.env[name]);
+  if (missing.length) {
+    throw new Error(`Gmail OAuth 환경 변수가 필요합니다: ${missing.join(", ")}`);
+  }
 }
 
 function encodeMimeSubject(subject: string) {
