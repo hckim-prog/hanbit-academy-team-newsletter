@@ -20,7 +20,8 @@ const oauth2Client = new OAuth2Client(clientId, clientSecret, redirectUri);
 const scopes = [
   "https://www.googleapis.com/auth/gmail.send",
   "https://www.googleapis.com/auth/gmail.compose",
-  "https://www.googleapis.com/auth/gmail.readonly",
+  "openid",
+  "email",
 ];
 
 const authUrl = oauth2Client.generateAuthUrl({

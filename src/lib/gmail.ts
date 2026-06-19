@@ -16,7 +16,7 @@ type GmailResult = {
 
 export async function deliverNewsletterViaGmail(payload: GmailPayload): Promise<GmailResult> {
   const accessToken = await getGmailAccessToken();
-  const sender = process.env.GMAIL_SENDER_EMAIL || (await getGmailProfileEmail(accessToken));
+  const sender = process.env.GMAIL_SENDER_EMAIL || (await getGoogleAccountEmail(accessToken));
   const raw = createMimeMessage({
     from: sender,
     to: sender,
@@ -94,8 +94,8 @@ async function getGmailAccessToken() {
   return token.token;
 }
 
-async function getGmailProfileEmail(accessToken: string) {
-  const response = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/profile", {
+async function getGoogleAccountEmail(accessToken: string) {
+  const response = await fetch("https://openidconnect.googleapis.com/v1/userinfo", {
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },
@@ -103,15 +103,15 @@ async function getGmailProfileEmail(accessToken: string) {
 
   if (!response.ok) {
     const detail = await response.text();
-    throw new Error(`Gmail 발송 계정 확인 실패: ${detail.slice(0, 500)}`);
+    throw new Error(`Google 계정 이메일 확인 실패: ${detail.slice(0, 500)}`);
   }
 
-  const profile = (await response.json()) as { emailAddress?: string };
-  if (!profile.emailAddress) {
-    throw new Error("Gmail 발송 계정 이메일을 확인하지 못했습니다.");
+  const profile = (await response.json()) as { email?: string };
+  if (!profile.email) {
+    throw new Error("Google 계정 이메일을 확인하지 못했습니다. OAuth scope에 openid와 email을 포함해 주세요.");
   }
 
-  return profile.emailAddress;
+  return profile.email;
 }
 
 function assertGmailConfig() {

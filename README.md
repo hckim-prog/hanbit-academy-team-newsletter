@@ -107,6 +107,8 @@ npm run gmail:oauth
 ```text
 https://www.googleapis.com/auth/gmail.send
 https://www.googleapis.com/auth/gmail.compose
+openid
+email
 ```
 
 앱은 다음 방식으로 동작합니다.
