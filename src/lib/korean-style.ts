@@ -61,11 +61,41 @@ export function normalizeNewsletterSentence(text: string): string {
     sentence = sentence.replace(pattern, replacement);
   }
 
+  sentence = completeNominalEnding(sentence);
+
   if (!/[.!?。]$/.test(sentence)) {
     sentence += ".";
   }
 
   return sentence;
+}
+
+function completeNominalEnding(sentence: string): string {
+  if (!sentence || /[요죠다]$/.test(sentence)) {
+    return sentence;
+  }
+
+  if (!/[가-힣A-Za-z0-9)%]$/.test(sentence)) {
+    return sentence;
+  }
+
+  return `${sentence}${hasFinalConsonant(lastMeaningfulChar(sentence)) ? "이에요" : "예요"}`;
+}
+
+function lastMeaningfulChar(text: string): string {
+  return text.replace(/\s+$/g, "").at(-1) ?? "";
+}
+
+function hasFinalConsonant(char: string): boolean {
+  const code = char.charCodeAt(0);
+  const hangulStart = 0xac00;
+  const hangulEnd = 0xd7a3;
+
+  if (code < hangulStart || code > hangulEnd) {
+    return false;
+  }
+
+  return (code - hangulStart) % 28 !== 0;
 }
 
 function splitReadableSentences(text: string): string[] {
