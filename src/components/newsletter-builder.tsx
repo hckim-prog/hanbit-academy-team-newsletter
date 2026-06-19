@@ -601,7 +601,7 @@ function EmailPreviewPanel({
             title="Gmail 발송 미리보기"
             srcDoc={emailPreviewHtml}
             className="h-[420px] w-full rounded-[6px] bg-[#efebe1]"
-            sandbox=""
+            sandbox="allow-same-origin"
           />
         ) : (
           <div className="grid h-[420px] place-items-center rounded-[6px] bg-[#efebe1] px-8 text-center text-sm font-bold leading-6 text-zinc-500">
@@ -624,14 +624,20 @@ function buildEmailHtml(innerHtml: string) {
       body{margin:0;background:#efebe1;color:#141414;font-family:Arial,"Apple SD Gothic Neo","Malgun Gothic",sans-serif}
       .email-shell{width:100%;padding:20px 0;background:#efebe1}
       .newsletter{width:720px;max-width:720px;margin:0 auto;border:1px solid #d9d2c4;border-radius:8px;overflow:hidden;background:#f7f3e9}
-      .hero{background:#141414!important;color:#efebe1!important;padding:30px;display:block}
-      .hero img{width:100%;max-width:660px;max-height:320px;border-radius:8px;margin-top:20px;object-fit:cover;display:block}
-      .section{margin:0;border-top:1px solid #d9d2c4;background:#f7f3e9!important;padding:22px;display:block}
-      .section img{width:180px;max-width:100%;max-height:140px;border-radius:8px;object-fit:cover;display:block;margin-bottom:16px}
+      .newsletter>.newsletter{width:100%;max-width:100%;border:0;border-radius:0;box-shadow:none}
+      .hero{background:#141414!important;color:#efebe1!important;display:block!important;border-bottom:1px solid #2a2a2a!important}
+      .hero>div:first-child{background:#141414!important;color:#efebe1!important;padding:30px!important;display:block!important}
+      .hero>div:last-child{background:#141414!important;padding:0!important;display:block!important;min-height:0!important}
+      .hero img{width:100%!important;max-width:none!important;height:auto!important;max-height:340px!important;border-radius:0!important;margin:0!important;object-fit:cover!important;display:block!important}
+      .section{margin:0!important;border-top:1px solid #d9d2c4!important;background:#f7f3e9!important;padding:0!important;display:grid!important;grid-template-columns:220px 1fr!important}
+      .section>div:first-child{position:relative!important;min-height:220px!important;overflow:hidden!important;border-right:1px solid #d9d2c4!important;padding:0!important;background:#f7f3e9!important}
+      .section>div:first-child p{position:absolute!important;left:14px!important;top:14px!important;z-index:2!important;margin:0!important;border-radius:999px!important;background:rgba(20,20,20,.62)!important;color:#fff!important;padding:4px 9px!important;font-size:11px!important;font-weight:900!important;line-height:1.2!important;letter-spacing:.08em!important}
+      .section>div:first-child img{position:absolute!important;inset:0!important;width:100%!important;height:100%!important;max-width:none!important;max-height:none!important;border-radius:0!important;object-fit:cover!important;display:block!important;margin:0!important}
+      .section>div:last-child{padding:24px!important}
       h2{font-size:34px;line-height:1.12;margin:0} h3{font-size:22px;line-height:1.3;margin:0 0 14px}
       p,li{font-size:15px;line-height:1.72}.section p:first-child{color:#ff6b4a;font-size:11px;font-weight:900;letter-spacing:.08em;text-transform:uppercase}
       footer{background:#141414;color:#efebe1;padding:24px} footer p{margin:0;font-size:18px;font-weight:700;line-height:1.6}
-      @media screen and (max-width:760px){.newsletter{width:100%!important;max-width:100%!important}.email-shell{padding:0}.hero{padding:24px}.hero img{max-width:100%;max-height:260px}h2{font-size:30px}.section{padding:20px}}
+      @media screen and (max-width:760px){.newsletter{width:100%!important;max-width:100%!important}.email-shell{padding:0}.hero>div:first-child{padding:24px!important}.hero img{max-height:260px!important}h2{font-size:30px}.section{display:block!important}.section>div:first-child{min-height:190px!important;border-right:0!important;border-bottom:1px solid #d9d2c4!important}.section>div:last-child{padding:20px!important}}
     </style>
   </head>
   <body>

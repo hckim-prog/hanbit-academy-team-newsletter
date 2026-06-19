@@ -1,16 +1,16 @@
 import OpenAI from "openai";
 import type { Newsletter } from "./types";
 
-const IMAGE_COUNT = Number(process.env.NEWSLETTER_IMAGE_COUNT ?? "4");
-
 export async function addGeneratedImages(newsletter: Newsletter, imageSeed = String(Date.now())): Promise<Newsletter> {
   if (!process.env.OPENAI_API_KEY) {
     return addFallbackPhotos(newsletter, imageSeed);
   }
 
+  const imageCount = Number(process.env.NEWSLETTER_IMAGE_COUNT ?? String(newsletter.sections.length + 1));
+  const sectionImageCount = Math.max(0, Math.min(newsletter.sections.length, imageCount - 1));
   const targets = [
     { kind: "hero" as const, prompt: newsletter.heroImagePrompt },
-    ...newsletter.sections.slice(0, Math.max(0, IMAGE_COUNT - 1)).map((section) => ({
+    ...newsletter.sections.slice(0, sectionImageCount).map((section) => ({
       kind: "section" as const,
       id: section.id,
       prompt: section.imagePrompt,
