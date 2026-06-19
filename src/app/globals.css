@@ -25,22 +25,42 @@ body {
   font-family: Arial, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
 }
 
+.field-input {
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.055);
+  padding: 12px 13px;
+  color: #f6f1e8;
+  font-size: 14px;
+  outline: none;
+}
+
+.field-input::placeholder {
+  color: rgba(246, 241, 232, 0.36);
+}
+
+.field-input:focus {
+  border-color: rgba(215, 255, 100, 0.7);
+  box-shadow: 0 0 0 3px rgba(215, 255, 100, 0.12);
+}
+
 .section-sky {
-  border-left: 8px solid #5ab1ef;
+  background: #c7e8ff;
 }
 
 .section-mint {
-  border-left: 8px solid #61d394;
+  background: #d7ff64;
 }
 
 .section-coral {
-  border-left: 8px solid #ff7a59;
+  background: #ff896d;
 }
 
 .section-violet {
-  border-left: 8px solid #9b8cff;
+  background: #b9a7ff;
 }
 
 .section-sun {
-  border-left: 8px solid #ffd166;
+  background: #ffd866;
 }

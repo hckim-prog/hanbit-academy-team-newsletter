@@ -1,22 +1,31 @@
 "use client";
 
 import {
+  ArrowDownToLine,
+  CheckCircle2,
   Copy,
-  Download,
   FileText,
   Image as ImageIcon,
   Loader2,
   Mail,
-  RefreshCw,
   Send,
+  Sparkles,
   WandSparkles,
 } from "lucide-react";
 import { useRef, useState } from "react";
 import type { GenerateNewsletterResponse, Newsletter } from "@/lib/types";
 
+const statusTone = {
+  idle: "border-white/10 bg-white/[0.04] text-zinc-300",
+  working: "border-[#d7ff64]/30 bg-[#d7ff64]/10 text-[#eaff9a]",
+  done: "border-[#70e3b1]/30 bg-[#70e3b1]/10 text-[#b9f7d8]",
+  error: "border-[#ff7a59]/40 bg-[#ff7a59]/10 text-[#ffc0b0]",
+};
+
 export function NewsletterBuilder() {
   const [newsletter, setNewsletter] = useState<Newsletter | null>(null);
   const [status, setStatus] = useState("대기 중입니다.");
+  const [statusKind, setStatusKind] = useState<keyof typeof statusTone>("idle");
   const [isLoading, setIsLoading] = useState(false);
   const [includeImages, setIncludeImages] = useState(true);
   const [subject, setSubject] = useState("");
@@ -24,9 +33,14 @@ export function NewsletterBuilder() {
   const [sendConfirmed, setSendConfirmed] = useState(false);
   const previewRef = useRef<HTMLElement>(null);
 
+  function setUiStatus(message: string, kind: keyof typeof statusTone = "idle") {
+    setStatus(message);
+    setStatusKind(kind);
+  }
+
   async function generate() {
     setIsLoading(true);
-    setStatus(includeImages ? "시트와 이미지를 함께 준비하는 중입니다..." : "시트를 읽고 초안을 정리하는 중입니다...");
+    setUiStatus(includeImages ? "시트와 이미지를 함께 준비하는 중입니다." : "시트를 읽고 초안을 정리하는 중입니다.", "working");
 
     try {
       const response = await fetch("/api/newsletter", {
@@ -42,9 +56,9 @@ export function NewsletterBuilder() {
 
       setNewsletter(payload.newsletter);
       setSubject(payload.newsletter.subject);
-      setStatus("초안을 만들었습니다. 본문을 눌러 바로 수정할 수 있어요.");
+      setUiStatus("초안을 만들었습니다. 미리보기 본문을 눌러 바로 수정할 수 있어요.", "done");
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : "오류가 발생했습니다.");
+      setUiStatus(error instanceof Error ? error.message : "오류가 발생했습니다.", "error");
     } finally {
       setIsLoading(false);
     }
@@ -55,7 +69,7 @@ export function NewsletterBuilder() {
       return;
     }
     await navigator.clipboard.writeText(buildEmailHtml(previewRef.current?.innerHTML ?? ""));
-    setStatus("HTML을 클립보드에 복사했습니다.");
+    setUiStatus("HTML을 클립보드에 복사했습니다.", "done");
   }
 
   function downloadHtml() {
@@ -70,7 +84,7 @@ export function NewsletterBuilder() {
     anchor.download = `dicon-newsletter-${newsletter.sourceDate.replace(/\s+/g, "-")}.html`;
     anchor.click();
     URL.revokeObjectURL(url);
-    setStatus("HTML 파일을 다운로드했습니다.");
+    setUiStatus("HTML 파일을 다운로드했습니다.", "done");
   }
 
   async function deliver(mode: "draft" | "send") {
@@ -79,12 +93,12 @@ export function NewsletterBuilder() {
     }
 
     if (mode === "send" && !sendConfirmed) {
-      setStatus("실제 발송 전 확인 체크가 필요합니다.");
+      setUiStatus("실제 발송 전 확인 체크가 필요합니다.", "error");
       return;
     }
 
     setIsLoading(true);
-    setStatus(mode === "draft" ? "Gmail 임시보관함을 만드는 중입니다..." : "Gmail로 발송하는 중입니다...");
+    setUiStatus(mode === "draft" ? "Gmail 임시보관함을 만드는 중입니다." : "Gmail로 발송하는 중입니다.", "working");
 
     try {
       const response = await fetch("/api/gmail", {
@@ -109,145 +123,178 @@ export function NewsletterBuilder() {
         throw new Error(payload.error ?? "Gmail 처리에 실패했습니다.");
       }
 
-      setStatus(
+      setUiStatus(
         mode === "draft"
           ? `Gmail 임시보관함을 만들었습니다. 대상 ${payload.recipientCount ?? 0}명.`
           : `Gmail 발송을 완료했습니다. 대상 ${payload.recipientCount ?? 0}명.`,
+        "done",
       );
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Gmail 처리 중 오류가 발생했습니다.");
+      setUiStatus(error instanceof Error ? error.message : "Gmail 처리 중 오류가 발생했습니다.", "error");
     } finally {
       setIsLoading(false);
     }
   }
 
   return (
-    <main className="min-h-screen bg-[#fff7e8] text-[#172033]">
-      <div className="grid min-h-screen grid-cols-[minmax(300px,380px)_1fr] max-[980px]:block">
-        <aside className="sticky top-0 h-screen overflow-auto border-r border-[#efd9ac] bg-white p-6 max-[980px]:static max-[980px]:h-auto max-[980px]:border-b max-[980px]:border-r-0">
-          <div className="mb-7">
-            <p className="mb-2 text-sm font-black text-[#ff6f4f]">HANBIT ACADEMY</p>
-            <h1 className="text-2xl font-black leading-tight min-[1180px]:text-3xl">
-              디콘전TF 뉴스레터
-              <br />
-              생성기
-            </h1>
-            <p className="mt-3 text-sm leading-6 text-[#667085]">
-              원본 Google Sheet는 읽기만 하고, Vercel 웹앱에서 검수 가능한 웹 뉴스레터를 만듭니다.
-            </p>
+    <main className="min-h-screen bg-[#111111] text-[#f6f1e8]">
+      <div className="grid min-h-screen grid-cols-[420px_1fr] max-[1040px]:block">
+        <aside className="sticky top-0 h-screen overflow-auto border-r border-white/10 bg-[#111111] p-5 max-[1040px]:static max-[1040px]:h-auto max-[1040px]:border-b max-[1040px]:border-r-0">
+          <div className="mb-5 flex items-center justify-between border-b border-white/10 pb-4">
+            <div>
+              <p className="text-[11px] font-black uppercase tracking-[0.24em] text-[#d7ff64]">Hanbit Academy</p>
+              <h1 className="mt-2 text-4xl font-black leading-[0.95] tracking-tight">
+                TF
+                <br />
+                Letter
+              </h1>
+            </div>
+            <div className="grid size-16 place-items-center rounded-full border border-white/15 bg-white/[0.04] text-xs font-black text-white">
+              BETA
+            </div>
           </div>
 
-          <label className="mb-3 flex items-center gap-3 rounded-lg border border-[#f0d59b] bg-[#fffaf0] p-4 text-sm font-bold">
-            <input
-              type="checkbox"
-              checked={includeImages}
-              onChange={(event) => setIncludeImages(event.target.checked)}
-              className="size-4 accent-[#ff7a59]"
-            />
-            <span className="flex items-center gap-2">
-              <ImageIcon size={17} />
-              이미지 함께 생성
-            </span>
-          </label>
+          <div className="mb-5 grid grid-cols-3 gap-2 text-[11px] font-bold uppercase tracking-[0.12em] text-zinc-400">
+            <span className="rounded-full border border-white/10 px-3 py-2 text-center">Sheet</span>
+            <span className="rounded-full border border-white/10 px-3 py-2 text-center">Image</span>
+            <span className="rounded-full border border-white/10 px-3 py-2 text-center">Gmail</span>
+          </div>
 
-          <label className="mb-2 block text-sm font-bold" htmlFor="subject">
-            메일 제목
-          </label>
-          <input
-            id="subject"
-            value={subject}
-            onChange={(event) => setSubject(event.target.value)}
-            placeholder="이번 호를 만들면 제목이 들어옵니다"
-            className="mb-4 w-full rounded-lg border border-[#e6c989] bg-[#fffdfa] px-3 py-3 text-sm outline-none focus:border-[#ff7a59]"
-          />
+          <section className="space-y-4">
+            <label className="flex items-center justify-between rounded-[8px] border border-white/10 bg-white/[0.04] p-4 text-sm font-bold">
+              <span className="flex items-center gap-2">
+                <ImageIcon size={17} />
+                이미지 함께 생성
+              </span>
+              <input
+                type="checkbox"
+                checked={includeImages}
+                onChange={(event) => setIncludeImages(event.target.checked)}
+                className="size-5 accent-[#d7ff64]"
+              />
+            </label>
 
-          <label className="mb-2 block text-sm font-bold" htmlFor="recipients">
-            받는 사람
-          </label>
-          <textarea
-            id="recipients"
-            value={recipients}
-            onChange={(event) => setRecipients(event.target.value)}
-            placeholder="academy@example.com, member@example.com"
-            rows={4}
-            className="mb-4 w-full resize-y rounded-lg border border-[#e6c989] bg-[#fffdfa] px-3 py-3 text-sm leading-6 outline-none focus:border-[#ff7a59]"
-          />
+            <Field label="메일 제목" htmlFor="subject">
+              <input
+                id="subject"
+                value={subject}
+                onChange={(event) => setSubject(event.target.value)}
+                placeholder="이번 호를 만들면 제목이 들어옵니다"
+                className="field-input"
+              />
+            </Field>
 
-          <div className="grid gap-3">
-            <button
+            <Field label="받는 사람" htmlFor="recipients">
+              <textarea
+                id="recipients"
+                value={recipients}
+                onChange={(event) => setRecipients(event.target.value)}
+                placeholder="academy@example.com, member@example.com"
+                rows={4}
+                className="field-input resize-y leading-6"
+              />
+            </Field>
+          </section>
+
+          <section className="mt-5 grid gap-2">
+            <ActionButton
               onClick={generate}
               disabled={isLoading}
-              className="flex items-center justify-center gap-2 rounded-lg bg-[#ffd166] px-4 py-3 font-black text-[#1b1b1b] transition hover:bg-[#ffc23d] disabled:cursor-wait disabled:opacity-60"
-            >
-              {isLoading ? <Loader2 className="animate-spin" size={18} /> : <WandSparkles size={18} />}
-              이번 호 만들기
-            </button>
-            <button
-              onClick={copyHtml}
-              disabled={!newsletter || isLoading}
-              className="flex items-center justify-center gap-2 rounded-lg bg-[#e9f7ff] px-4 py-3 font-black text-[#164e76] transition hover:bg-[#d7f0ff] disabled:opacity-50"
-            >
-              <Copy size={18} />
-              HTML 복사
-            </button>
-            <button
-              onClick={downloadHtml}
-              disabled={!newsletter || isLoading}
-              className="flex items-center justify-center gap-2 rounded-lg bg-[#f8f2e7] px-4 py-3 font-black text-[#614719] transition hover:bg-[#efe3d1] disabled:opacity-50"
-            >
-              <Download size={18} />
-              HTML 다운로드
-            </button>
-            <button
-              onClick={() => deliver("draft")}
-              disabled={!newsletter || isLoading}
-              className="flex items-center justify-center gap-2 rounded-lg bg-[#e8f8ec] px-4 py-3 font-black text-[#176b35] transition hover:bg-[#d9f2df] disabled:opacity-50"
-            >
-              <Mail size={18} />
-              Gmail 임시보관함
-            </button>
+              icon={isLoading ? <Loader2 className="animate-spin" size={18} /> : <WandSparkles size={18} />}
+              label="이번 호 만들기"
+              variant="primary"
+            />
+            <div className="grid grid-cols-2 gap-2">
+              <ActionButton onClick={copyHtml} disabled={!newsletter || isLoading} icon={<Copy size={17} />} label="HTML 복사" />
+              <ActionButton
+                onClick={downloadHtml}
+                disabled={!newsletter || isLoading}
+                icon={<ArrowDownToLine size={17} />}
+                label="다운로드"
+              />
+            </div>
+            <ActionButton onClick={() => deliver("draft")} disabled={!newsletter || isLoading} icon={<Mail size={18} />} label="Gmail 임시보관함" />
 
-            <label className="flex items-start gap-3 rounded-lg border border-[#f0d59b] bg-[#fffaf0] p-3 text-xs font-bold leading-5 text-[#73531a]">
+            <label className="mt-2 flex items-start gap-3 rounded-[8px] border border-[#d7ff64]/20 bg-[#d7ff64]/5 p-3 text-xs font-bold leading-5 text-zinc-300">
               <input
                 type="checkbox"
                 checked={sendConfirmed}
                 onChange={(event) => setSendConfirmed(event.target.checked)}
-                className="mt-0.5 size-4 accent-[#ff7a59]"
+                className="mt-0.5 size-4 accent-[#d7ff64]"
               />
               <span>본문과 수신자를 검수했고, 실제 Gmail 발송을 진행합니다.</span>
             </label>
-            <button
+            <ActionButton
               onClick={() => deliver("send")}
               disabled={!newsletter || isLoading || !sendConfirmed}
-              className="flex items-center justify-center gap-2 rounded-lg bg-[#ff7a59] px-4 py-3 font-black text-white transition hover:bg-[#f06744] disabled:opacity-50"
-            >
-              <Send size={18} />
-              Gmail 발송
-            </button>
-          </div>
+              icon={<Send size={18} />}
+              label="Gmail 발송"
+              variant="danger"
+            />
+          </section>
 
-          <div className="mt-5 rounded-lg border border-[#f0d59b] bg-[#fffaf0] p-4 text-sm leading-6 text-[#73531a]">
+          <section className={`mt-5 rounded-[8px] border p-4 text-sm leading-6 ${statusTone[statusKind]}`}>
             <div className="mb-2 flex items-center gap-2 font-black">
-              <RefreshCw size={16} />
+              {statusKind === "done" ? <CheckCircle2 size={16} /> : <Sparkles size={16} />}
               상태
             </div>
             {status}
-          </div>
+          </section>
 
           {newsletter ? (
-            <div className="mt-5 grid gap-2 text-xs text-[#667085]">
+            <section className="mt-5 grid gap-2 border-t border-white/10 pt-5 text-xs text-zinc-500">
               <span>원천 날짜: {newsletter.sourceDate}</span>
               <span>원천 범위: {newsletter.sourceRange}</span>
               <span>생성 시각: {newsletter.generatedAt}</span>
-            </div>
+            </section>
           ) : null}
         </aside>
 
-        <section className="p-8 max-[720px]:p-4">
+        <section className="min-h-screen bg-[#efebe1] p-8 text-[#141414] max-[720px]:p-4">
           <NewsletterPreview newsletter={newsletter} subject={subject} previewRef={previewRef} />
         </section>
       </div>
     </main>
+  );
+}
+
+function Field({ label, htmlFor, children }: { label: string; htmlFor: string; children: React.ReactNode }) {
+  return (
+    <label className="block" htmlFor={htmlFor}>
+      <span className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-zinc-500">{label}</span>
+      {children}
+    </label>
+  );
+}
+
+function ActionButton({
+  onClick,
+  disabled,
+  icon,
+  label,
+  variant = "secondary",
+}: {
+  onClick: () => void;
+  disabled?: boolean;
+  icon: React.ReactNode;
+  label: string;
+  variant?: "primary" | "secondary" | "danger";
+}) {
+  const variants = {
+    primary: "border-[#d7ff64] bg-[#d7ff64] text-[#111111] hover:bg-[#e5ff8f]",
+    secondary: "border-white/10 bg-white/[0.06] text-zinc-100 hover:bg-white/[0.11]",
+    danger: "border-[#ff6b4a] bg-[#ff6b4a] text-white hover:bg-[#ff7d61]",
+  };
+
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={`flex min-h-12 items-center justify-center gap-2 rounded-[8px] border px-4 py-3 text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-40 ${variants[variant]}`}
+    >
+      {icon}
+      {label}
+    </button>
   );
 }
 
@@ -262,17 +309,33 @@ function NewsletterPreview({
 }) {
   if (!newsletter) {
     return (
-      <article className="mx-auto max-w-5xl overflow-hidden rounded-lg border border-[#f2d7a0] bg-[#fffaf0] shadow-[0_18px_45px_rgba(103,73,15,0.12)]">
-        <div className="bg-[#ffb563] p-10 text-[#2e1b00]">
-          <p className="mb-3 text-sm font-black">디지털콘텐츠전환TF 격주 소식</p>
-          <h2 className="text-4xl font-black leading-tight">이번 호를 만들어 주세요</h2>
-          <p className="mt-4 max-w-2xl leading-7">
-            왼쪽의 버튼을 누르면 최신 보고를 읽고 이미지가 포함된 웹 뉴스레터 초안을 만듭니다.
-          </p>
-        </div>
-        <div className="grid place-items-center p-16 text-center text-[#667085]">
-          <FileText size={42} />
-          <p className="mt-4 text-sm">생성된 뉴스레터는 이곳에서 바로 수정할 수 있습니다.</p>
+      <article className="mx-auto max-w-6xl overflow-hidden rounded-[8px] border border-black/10 bg-[#f7f3e9] shadow-[0_30px_90px_rgba(20,20,20,0.16)]">
+        <div className="grid min-h-[420px] grid-cols-[1fr_1.2fr] border-b border-black/10 max-[900px]:block">
+          <div className="flex flex-col justify-between bg-[#141414] p-8 text-[#efebe1]">
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-[#d7ff64]">Digital Content TF</p>
+            <h2 className="mt-16 text-6xl font-black leading-[0.95] tracking-tight max-[720px]:text-4xl">
+              Make
+              <br />
+              the issue
+            </h2>
+            <p className="mt-8 max-w-sm text-sm leading-6 text-zinc-400">
+              왼쪽의 버튼을 누르면 최신 보고를 읽고, 이미지가 포함된 웹 뉴스레터 초안을 만듭니다.
+            </p>
+          </div>
+          <div className="grid place-items-center p-8">
+            <div className="w-full max-w-md rounded-[8px] border border-black/10 bg-white p-5">
+              <div className="mb-10 flex items-center justify-between text-xs font-black uppercase tracking-[0.16em] text-zinc-500">
+                <span>Preview</span>
+                <FileText size={18} />
+              </div>
+              <div className="h-28 rounded-[8px] bg-[#d7ff64]" />
+              <div className="mt-5 space-y-3">
+                <div className="h-4 w-3/4 rounded-full bg-black/15" />
+                <div className="h-4 w-1/2 rounded-full bg-black/10" />
+                <div className="h-4 w-5/6 rounded-full bg-black/10" />
+              </div>
+            </div>
+          </div>
         </div>
       </article>
     );
@@ -283,49 +346,54 @@ function NewsletterPreview({
       ref={previewRef}
       contentEditable
       suppressContentEditableWarning
-      className="newsletter mx-auto max-w-5xl overflow-hidden rounded-lg border border-[#f2d7a0] bg-[#fffaf0] shadow-[0_18px_45px_rgba(103,73,15,0.12)] outline-none focus:ring-4 focus:ring-[#ffd166]/40"
+      className="newsletter mx-auto max-w-6xl overflow-hidden rounded-[8px] border border-black/10 bg-[#f7f3e9] shadow-[0_30px_90px_rgba(20,20,20,0.16)] outline-none focus:ring-4 focus:ring-[#d7ff64]/60"
       aria-label="뉴스레터 편집 영역"
     >
-      <header className="hero grid grid-cols-[1.1fr_.9fr] gap-8 bg-[#ffb563] p-9 text-[#2e1b00] max-[820px]:block">
-        <div>
-          <p className="mb-3 text-sm font-black">{newsletter.teamName} 격주 소식</p>
-          <h2 className="text-4xl font-black leading-tight">{newsletter.heroTitle}</h2>
-          <p className="mt-4 max-w-2xl leading-7">{newsletter.heroSubtitle}</p>
-          {subject ? <p className="mt-5 text-sm font-bold opacity-80">{subject}</p> : null}
+      <header className="hero grid min-h-[460px] grid-cols-[1fr_1.08fr] border-b border-black/10 max-[900px]:block">
+        <div className="flex flex-col justify-between bg-[#141414] p-8 text-[#efebe1]">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-[#d7ff64]">{newsletter.teamName}</p>
+            <p className="mt-3 text-xs text-zinc-500">{newsletter.sourceDate} / {newsletter.sourceRange}</p>
+          </div>
+          <div>
+            <h2 className="max-w-xl text-6xl font-black leading-[0.92] tracking-tight max-[720px]:text-4xl">
+              {newsletter.heroTitle}
+            </h2>
+            <p className="mt-5 max-w-lg text-base leading-7 text-zinc-300">{newsletter.heroSubtitle}</p>
+            {subject ? <p className="mt-5 text-xs font-bold uppercase tracking-[0.12em] text-zinc-500">{subject}</p> : null}
+          </div>
         </div>
-        {newsletter.heroImageUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={newsletter.heroImageUrl}
-            alt=""
-            className="aspect-[4/3] w-full rounded-lg border-4 border-white/55 object-cover shadow-lg max-[820px]:mt-7"
-          />
-        ) : null}
+        <div className="bg-[#d7ff64] p-5">
+          {newsletter.heroImageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={newsletter.heroImageUrl} alt="" className="h-full min-h-[420px] w-full rounded-[8px] object-cover" />
+          ) : (
+            <div className="h-full min-h-[420px] rounded-[8px] bg-black/10" />
+          )}
+        </div>
       </header>
 
-      <div className="grid gap-5 p-7">
-        {newsletter.sections.map((section) => (
-          <section
-            key={section.id}
-            className={`section section-${section.tone} grid grid-cols-[170px_1fr] gap-5 rounded-lg border border-[#f1ddb2] bg-white p-5 max-[720px]:block`}
-          >
-            {section.imageUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={section.imageUrl}
-                alt=""
-                className="aspect-square w-full rounded-lg object-cover max-[720px]:mb-4 max-[720px]:max-w-52"
-              />
-            ) : null}
-            <div>
-              <p className="mb-2 text-xs font-black text-[#ff6f4f]">{section.eyebrow}</p>
-              <h3 className="mb-3 text-2xl font-black leading-snug">{section.title}</h3>
+      <div className="grid gap-px bg-black/10">
+        {newsletter.sections.map((section, index) => (
+          <section key={section.id} className="section grid grid-cols-[260px_1fr] bg-[#f7f3e9] max-[760px]:block">
+            <div className={`section-${section.tone} border-r border-black/10 p-5 max-[760px]:border-b max-[760px]:border-r-0`}>
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-black/50">0{index + 1}</p>
+              {section.imageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={section.imageUrl} alt="" className="mt-5 aspect-[4/3] w-full rounded-[8px] object-cover" />
+              ) : null}
+            </div>
+            <div className="p-7">
+              <p className="mb-3 text-xs font-black uppercase tracking-[0.16em] text-[#ff6b4a]">{section.eyebrow}</p>
+              <h3 className="mb-5 max-w-3xl text-3xl font-black leading-tight tracking-tight">{section.title}</h3>
               {section.body.length === 1 ? (
-                <p className="leading-8">{section.body[0]}</p>
+                <p className="max-w-4xl text-lg leading-9 text-[#282828]">{section.body[0]}</p>
               ) : (
-                <ul className="list-disc space-y-2 pl-5 leading-8">
+                <ul className="grid gap-3 text-base leading-8 text-[#282828]">
                   {section.body.map((item) => (
-                    <li key={item}>{item}</li>
+                    <li key={item} className="border-l-4 border-black/15 pl-4">
+                      {item}
+                    </li>
                   ))}
                 </ul>
               )}
@@ -334,8 +402,9 @@ function NewsletterPreview({
         ))}
       </div>
 
-      <footer className="p-7 pt-0">
-        <p className="rounded-lg bg-[#fff2c9] p-5 font-bold leading-7 text-[#6b3d00]">{newsletter.closing}</p>
+      <footer className="grid grid-cols-[260px_1fr] border-t border-black/10 bg-[#141414] text-[#efebe1] max-[760px]:block">
+        <div className="p-6 text-xs font-black uppercase tracking-[0.18em] text-[#d7ff64]">Next issue</div>
+        <p className="p-6 text-xl font-bold leading-8">{newsletter.closing}</p>
       </footer>
     </article>
   );
@@ -349,15 +418,13 @@ function buildEmailHtml(innerHtml: string) {
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>디지털콘텐츠전환TF 뉴스레터</title>
     <style>
-      body{margin:0;background:#fff7e8;color:#172033;font-family:Arial,"Apple SD Gothic Neo","Malgun Gothic",sans-serif}
-      .newsletter{max-width:980px;margin:0 auto;border:1px solid #f2d7a0;border-radius:8px;overflow:hidden;background:#fffaf0}
-      .hero{background:#ffb563;color:#2e1b00;padding:36px;display:block}
-      .hero img{max-width:100%;border-radius:8px;margin-top:22px}
-      .section{margin:0 0 18px;padding:22px;border:1px solid #f1ddb2;border-radius:8px;background:#fff}
-      .section img{width:160px;max-width:100%;border-radius:8px;display:block;margin-bottom:14px}
-      h2{font-size:34px;line-height:1.2;margin:0} h3{font-size:22px;line-height:1.35;margin:0 0 12px}
-      p,li{line-height:1.75}.section p:first-child{color:#ff6f4f;font-size:12px;font-weight:900}
-      footer p{margin:0;padding:18px 22px;border-radius:8px;background:#fff2c9;color:#6b3d00;font-weight:700}
+      body{margin:0;background:#efebe1;color:#141414;font-family:Arial,"Apple SD Gothic Neo","Malgun Gothic",sans-serif}
+      .newsletter{max-width:980px;margin:0 auto;border:1px solid #d9d2c4;border-radius:8px;overflow:hidden;background:#f7f3e9}
+      .hero{background:#141414;color:#efebe1;padding:36px;display:block}.hero img{max-width:100%;border-radius:8px;margin-top:22px}
+      .section{margin:0;border-top:1px solid #d9d2c4;background:#f7f3e9;padding:24px}.section img{width:220px;max-width:100%;border-radius:8px;display:block;margin-bottom:18px}
+      h2{font-size:42px;line-height:1.05;margin:0} h3{font-size:25px;line-height:1.25;margin:0 0 16px}
+      p,li{line-height:1.75}.section p:first-child{color:#ff6b4a;font-size:12px;font-weight:900;letter-spacing:.08em;text-transform:uppercase}
+      footer{background:#141414;color:#efebe1;padding:24px} footer p{margin:0;font-size:18px;font-weight:700;line-height:1.6}
     </style>
   </head>
   <body>
