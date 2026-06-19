@@ -18,7 +18,7 @@ type GmailResult = {
 
 export async function deliverNewsletterViaGmail(payload: GmailPayload): Promise<GmailResult> {
   const accessToken = await getGmailAccessToken(payload.refreshToken);
-  const sender = payload.senderEmail || process.env.GMAIL_SENDER_EMAIL || (await getGoogleAccountEmail(accessToken));
+  const sender = process.env.GMAIL_SENDER_EMAIL || payload.senderEmail || (await getGoogleAccountEmail(accessToken));
   const raw = createMimeMessage({
     from: sender,
     to: sender,

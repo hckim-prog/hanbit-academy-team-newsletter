@@ -120,7 +120,7 @@ GMAIL_CLIENT_SECRET
 GMAIL_SESSION_SECRET
 ```
 
-`GMAIL_REFRESH_TOKEN`, `GMAIL_SENDER_EMAIL`은 선택입니다. 비워두면 앱에서 연결한 Gmail 계정을 사용합니다.
+`GMAIL_REFRESH_TOKEN`, `GMAIL_SENDER_EMAIL`은 선택입니다. `GMAIL_SENDER_EMAIL`을 설정하면 해당 주소를 From으로 우선 사용합니다. 단, Gmail/Google Workspace에서 연결 계정의 보내는 주소 또는 별칭으로 등록되어 있어야 합니다.
 
 ## 운영 흐름
 
