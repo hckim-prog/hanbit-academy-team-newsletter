@@ -53,6 +53,9 @@ NEWSLETTER_IMAGE_COUNT=4
 # Gmail 발송 기능
 GMAIL_CLIENT_ID=...
 GMAIL_CLIENT_SECRET=...
+GMAIL_SESSION_SECRET=...
+
+# 선택: 앱 연결 버튼 대신 서버 전체 공용 발송 계정을 고정할 때만 사용합니다.
 GMAIL_REFRESH_TOKEN=...
 GMAIL_SENDER_EMAIL=sender@example.com
 
@@ -80,7 +83,7 @@ npx vercel --prod
 
 ## Gmail 발송 설정
 
-Vercel 앱에서 Gmail 임시보관함 생성 또는 실제 발송을 하려면 Gmail API OAuth 값이 필요합니다.
+Vercel 앱에서 Gmail 임시보관함 생성 또는 실제 발송을 하려면 Gmail API OAuth Client가 필요합니다. Refresh token은 앱의 `Gmail 연결` 버튼으로 자동 저장하므로 Vercel에 직접 넣지 않아도 됩니다.
 
 1. Google Cloud Console에서 `Gmail API`를 사용 설정합니다.
 2. `API 및 서비스 > OAuth 동의 화면`을 설정합니다.
@@ -88,21 +91,13 @@ Vercel 앱에서 Gmail 임시보관함 생성 또는 실제 발송을 하려면 
 4. 앱 유형은 `웹 애플리케이션`으로 만들고, 승인된 리디렉션 URI에 아래 값을 추가합니다.
 
 ```text
-http://localhost:3333/oauth2callback
+https://hanbit-academy-team-newsletter.vercel.app/api/gmail/callback
 ```
 
 5. OAuth client의 `client_id`, `client_secret`을 확보합니다.
-6. 로컬 PowerShell에서 아래처럼 refresh token을 발급합니다.
-
-```powershell
-$env:GMAIL_CLIENT_ID="Google Cloud에서 복사한 Client ID"
-$env:GMAIL_CLIENT_SECRET="Google Cloud에서 복사한 Client secret"
-npm run gmail:oauth
-```
-
-브라우저에 표시되는 Google 로그인 화면에서 발송에 사용할 Gmail 계정으로 승인하면 터미널에 `GMAIL_REFRESH_TOKEN` 값이 출력됩니다.
-
-7. Gmail scope는 아래 범위를 사용합니다.
+6. Vercel Environment Variables에 `GMAIL_CLIENT_ID`, `GMAIL_CLIENT_SECRET`, `GMAIL_SESSION_SECRET`를 Production으로 추가한 뒤 재배포합니다.
+7. 앱 왼쪽 패널에서 `Gmail 연결`을 누르고 발송에 사용할 Gmail 계정으로 승인합니다.
+8. Gmail scope는 아래 범위를 사용합니다.
 
 ```text
 https://www.googleapis.com/auth/gmail.send
@@ -122,10 +117,10 @@ Vercel에 필요한 값:
 ```bash
 GMAIL_CLIENT_ID
 GMAIL_CLIENT_SECRET
-GMAIL_REFRESH_TOKEN
+GMAIL_SESSION_SECRET
 ```
 
-`GMAIL_SENDER_EMAIL`은 선택입니다. 비워두면 OAuth로 연결된 Gmail 계정을 자동 사용합니다.
+`GMAIL_REFRESH_TOKEN`, `GMAIL_SENDER_EMAIL`은 선택입니다. 비워두면 앱에서 연결한 Gmail 계정을 사용합니다.
 
 ## 운영 흐름
 

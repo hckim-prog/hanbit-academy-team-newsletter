@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { deliverNewsletterViaGmail, parseRecipientList } from "@/lib/gmail";
+import { GMAIL_SESSION_COOKIE, openGmailSession } from "@/lib/gmail-session";
 
 export const runtime = "nodejs";
 
@@ -15,6 +16,13 @@ export async function POST(request: Request) {
   try {
     const body = (await request.json()) as RequestBody;
     const mode = body.mode ?? "send";
+    const sessionValue = request.headers
+      .get("cookie")
+      ?.split(";")
+      .map((item) => item.trim())
+      .find((item) => item.startsWith(`${GMAIL_SESSION_COOKIE}=`))
+      ?.split("=")[1];
+    const session = openGmailSession(sessionValue ? decodeURIComponent(sessionValue) : undefined);
 
     if (mode === "send" && !body.confirmed) {
       return NextResponse.json({ error: "발송 확인 체크가 필요합니다." }, { status: 400 });
@@ -40,6 +48,8 @@ export async function POST(request: Request) {
       subject,
       html,
       mode,
+      refreshToken: session?.refreshToken,
+      senderEmail: session?.email,
     });
 
     return NextResponse.json({

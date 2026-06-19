@@ -7,6 +7,8 @@ type GmailPayload = {
   subject: string;
   html: string;
   mode: GmailMode;
+  refreshToken?: string;
+  senderEmail?: string;
 };
 
 type GmailResult = {
@@ -15,8 +17,8 @@ type GmailResult = {
 };
 
 export async function deliverNewsletterViaGmail(payload: GmailPayload): Promise<GmailResult> {
-  const accessToken = await getGmailAccessToken();
-  const sender = process.env.GMAIL_SENDER_EMAIL || (await getGoogleAccountEmail(accessToken));
+  const accessToken = await getGmailAccessToken(payload.refreshToken);
+  const sender = payload.senderEmail || process.env.GMAIL_SENDER_EMAIL || (await getGoogleAccountEmail(accessToken));
   const raw = createMimeMessage({
     from: sender,
     to: sender,
@@ -78,23 +80,26 @@ function createMimeMessage({
   return Buffer.from(mime).toString("base64url");
 }
 
-async function getGmailAccessToken() {
-  assertGmailConfig();
-  const client = new OAuth2Client(
-    requiredEnv("GMAIL_CLIENT_ID"),
-    requiredEnv("GMAIL_CLIENT_SECRET"),
-  );
-  client.setCredentials({ refresh_token: requiredEnv("GMAIL_REFRESH_TOKEN") });
-  const token = await client.getAccessToken();
-
-  if (!token.token) {
-    throw new Error("Gmail access token을 만들지 못했습니다.");
-  }
-
-  return token.token;
+export function getGmailOAuthConfig() {
+  return {
+    clientId: process.env.GMAIL_CLIENT_ID,
+    clientSecret: process.env.GMAIL_CLIENT_SECRET,
+  };
 }
 
-async function getGoogleAccountEmail(accessToken: string) {
+export function getMissingGmailOAuthConfig() {
+  return ["GMAIL_CLIENT_ID", "GMAIL_CLIENT_SECRET"].filter((name) => !process.env[name]);
+}
+
+export function createGmailOAuthClient(redirectUri?: string) {
+  const { clientId, clientSecret } = getGmailOAuthConfig();
+  if (!clientId || !clientSecret) {
+    throw new Error(`Gmail OAuth 환경 변수가 필요합니다: ${getMissingGmailOAuthConfig().join(", ")}`);
+  }
+  return new OAuth2Client(clientId, clientSecret, redirectUri);
+}
+
+export async function getGoogleAccountEmail(accessToken: string) {
   const response = await fetch("https://openidconnect.googleapis.com/v1/userinfo", {
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -114,8 +119,27 @@ async function getGoogleAccountEmail(accessToken: string) {
   return profile.email;
 }
 
-function assertGmailConfig() {
-  const missing = ["GMAIL_CLIENT_ID", "GMAIL_CLIENT_SECRET", "GMAIL_REFRESH_TOKEN"].filter((name) => !process.env[name]);
+async function getGmailAccessToken(refreshToken = process.env.GMAIL_REFRESH_TOKEN) {
+  assertGmailConfig(refreshToken);
+  const client = new OAuth2Client(
+    requiredEnv("GMAIL_CLIENT_ID"),
+    requiredEnv("GMAIL_CLIENT_SECRET"),
+  );
+  client.setCredentials({ refresh_token: refreshToken });
+  const token = await client.getAccessToken();
+
+  if (!token.token) {
+    throw new Error("Gmail access token을 만들지 못했습니다.");
+  }
+
+  return token.token;
+}
+
+function assertGmailConfig(refreshToken?: string) {
+  const missing = getMissingGmailOAuthConfig();
+  if (!refreshToken) {
+    missing.push("Gmail 연결 또는 GMAIL_REFRESH_TOKEN");
+  }
   if (missing.length) {
     throw new Error(`Gmail OAuth 환경 변수가 필요합니다: ${missing.join(", ")}`);
   }

@@ -8,11 +8,12 @@ import {
   Image as ImageIcon,
   Loader2,
   Mail,
+  MailCheck,
   Send,
   Sparkles,
   WandSparkles,
 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { GenerateNewsletterResponse, Newsletter } from "@/lib/types";
 
 const statusTone = {
@@ -20,6 +21,13 @@ const statusTone = {
   working: "border-[#d7ff64]/30 bg-[#d7ff64]/10 text-[#eaff9a]",
   done: "border-[#70e3b1]/30 bg-[#70e3b1]/10 text-[#b9f7d8]",
   error: "border-[#ff7a59]/40 bg-[#ff7a59]/10 text-[#ffc0b0]",
+};
+
+type GmailStatus = {
+  configured: boolean;
+  connected: boolean;
+  email: string | null;
+  missing: string[];
 };
 
 export function NewsletterBuilder() {
@@ -31,11 +39,37 @@ export function NewsletterBuilder() {
   const [subject, setSubject] = useState("");
   const [recipients, setRecipients] = useState("");
   const [sendConfirmed, setSendConfirmed] = useState(false);
+  const [gmailStatus, setGmailStatus] = useState<GmailStatus | null>(null);
   const previewRef = useRef<HTMLElement>(null);
 
   function setUiStatus(message: string, kind: keyof typeof statusTone = "idle") {
     setStatus(message);
     setStatusKind(kind);
+  }
+
+  const refreshGmailStatus = useCallback(async () => {
+    try {
+      const response = await fetch("/api/gmail/status");
+      const payload = (await response.json()) as GmailStatus;
+      setGmailStatus(payload);
+      if (new URLSearchParams(window.location.search).get("gmail") === "connected") {
+        setUiStatus(`${payload.email ?? "Gmail"} 계정 연결이 완료되었습니다.`, "done");
+        window.history.replaceState({}, "", window.location.pathname);
+      }
+    } catch {
+      setGmailStatus(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    refreshGmailStatus();
+  }, [refreshGmailStatus]);
+
+  async function disconnectGmail() {
+    await fetch("/api/gmail/disconnect", { method: "POST" });
+    await refreshGmailStatus();
+    setUiStatus("Gmail 연결을 해제했습니다.", "idle");
   }
 
   async function generate() {
@@ -173,6 +207,50 @@ export function NewsletterBuilder() {
                 className="size-5 accent-[#d7ff64]"
               />
             </label>
+
+            <div className="rounded-[8px] border border-white/10 bg-white/[0.04] p-4">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <span className="flex items-center gap-2 text-sm font-black">
+                  <MailCheck size={17} />
+                  Gmail 연결
+                </span>
+                <span className={`rounded-full px-2.5 py-1 text-[11px] font-black ${gmailStatus?.connected ? "bg-[#70e3b1]/20 text-[#b9f7d8]" : "bg-[#ff7a59]/15 text-[#ffc0b0]"}`}>
+                  {gmailStatus?.connected ? "연결됨" : "대기"}
+                </span>
+              </div>
+              {gmailStatus?.connected ? (
+                <div className="grid gap-2">
+                  <p className="text-xs leading-5 text-zinc-400">{gmailStatus.email} 계정으로 발송합니다.</p>
+                  <button
+                    type="button"
+                    onClick={disconnectGmail}
+                    className="rounded-[8px] border border-white/10 px-3 py-2 text-xs font-black text-zinc-200 transition hover:bg-white/[0.08]"
+                  >
+                    연결 해제
+                  </button>
+                </div>
+              ) : (
+                <div className="grid gap-2">
+                  {gmailStatus && !gmailStatus.configured ? (
+                    <p className="text-xs leading-5 text-[#ffc0b0]">
+                      Vercel에 {gmailStatus.missing.join(", ")} 값이 필요합니다.
+                    </p>
+                  ) : (
+                    <p className="text-xs leading-5 text-zinc-400">처음 한 번만 Gmail 계정을 연결하면 됩니다.</p>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      window.location.href = "/api/gmail/connect";
+                    }}
+                    disabled={gmailStatus ? !gmailStatus.configured : true}
+                    className="rounded-[8px] border border-[#d7ff64] bg-[#d7ff64] px-3 py-2 text-xs font-black text-[#111111] transition hover:bg-[#e5ff8f] disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Gmail 연결
+                  </button>
+                </div>
+              )}
+            </div>
 
             <Field label="메일 제목" htmlFor="subject">
               <input
