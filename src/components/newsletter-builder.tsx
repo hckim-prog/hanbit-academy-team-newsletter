@@ -497,16 +497,22 @@ function buildEmailHtml(innerHtml: string) {
     <title>디지털콘텐츠전환TF 뉴스레터</title>
     <style>
       body{margin:0;background:#efebe1;color:#141414;font-family:Arial,"Apple SD Gothic Neo","Malgun Gothic",sans-serif}
-      .newsletter{max-width:980px;margin:0 auto;border:1px solid #d9d2c4;border-radius:8px;overflow:hidden;background:#f7f3e9}
-      .hero{background:#141414;color:#efebe1;padding:36px;display:block}.hero img{max-width:100%;border-radius:8px;margin-top:22px}
-      .section{margin:0;border-top:1px solid #d9d2c4;background:#f7f3e9;padding:24px}.section img{width:220px;max-width:100%;border-radius:8px;display:block;margin-bottom:18px}
-      h2{font-size:42px;line-height:1.05;margin:0} h3{font-size:25px;line-height:1.25;margin:0 0 16px}
-      p,li{line-height:1.75}.section p:first-child{color:#ff6b4a;font-size:12px;font-weight:900;letter-spacing:.08em;text-transform:uppercase}
+      .email-shell{width:100%;padding:20px 0;background:#efebe1}
+      .newsletter{width:720px;max-width:720px;margin:0 auto;border:1px solid #d9d2c4;border-radius:8px;overflow:hidden;background:#f7f3e9}
+      .hero{background:#141414!important;color:#efebe1!important;padding:30px;display:block}
+      .hero img{width:100%;max-width:660px;max-height:320px;border-radius:8px;margin-top:20px;object-fit:cover;display:block}
+      .section{margin:0;border-top:1px solid #d9d2c4;background:#f7f3e9!important;padding:22px;display:block}
+      .section img{width:180px;max-width:100%;max-height:140px;border-radius:8px;object-fit:cover;display:block;margin-bottom:16px}
+      h2{font-size:34px;line-height:1.12;margin:0} h3{font-size:22px;line-height:1.3;margin:0 0 14px}
+      p,li{font-size:15px;line-height:1.72}.section p:first-child{color:#ff6b4a;font-size:11px;font-weight:900;letter-spacing:.08em;text-transform:uppercase}
       footer{background:#141414;color:#efebe1;padding:24px} footer p{margin:0;font-size:18px;font-weight:700;line-height:1.6}
+      @media screen and (max-width:760px){.newsletter{width:100%!important;max-width:100%!important}.email-shell{padding:0}.hero{padding:24px}.hero img{max-width:100%;max-height:260px}h2{font-size:30px}.section{padding:20px}}
     </style>
   </head>
   <body>
-    <div style="padding:24px">${innerHtml}</div>
+    <div class="email-shell">
+      <div class="newsletter">${innerHtml}</div>
+    </div>
   </body>
 </html>`;
 }
