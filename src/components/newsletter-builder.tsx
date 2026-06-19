@@ -30,6 +30,8 @@ type GmailStatus = {
   missing: string[];
 };
 
+type WritingStyle = "concise" | "expand" | "natural";
+
 export function NewsletterBuilder() {
   const [newsletter, setNewsletter] = useState<Newsletter | null>(null);
   const [status, setStatus] = useState("대기 중입니다.");
@@ -105,19 +107,25 @@ export function NewsletterBuilder() {
     }
   }
 
-  async function polishWriting() {
+  async function polishWriting(style: WritingStyle) {
     if (!newsletter) {
       return;
     }
 
+    const styleLabels: Record<WritingStyle, string> = {
+      concise: "짧게",
+      expand: "자세히",
+      natural: "자연스럽게",
+    };
+
     setIsLoading(true);
-    setUiStatus("문장을 짧고 일관된 요체로 다듬는 중입니다.", "working");
+    setUiStatus(`전체 문장을 ${styleLabels[style]} 다듬는 중입니다.`, "working");
 
     try {
       const response = await fetch("/api/polish", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ newsletter }),
+        body: JSON.stringify({ newsletter: getEditedNewsletter(), style }),
       });
       const payload = (await response.json()) as { newsletter?: Newsletter; error?: string };
 
@@ -128,7 +136,7 @@ export function NewsletterBuilder() {
       setNewsletter(payload.newsletter);
       editedNewsletterRef.current = payload.newsletter;
       window.setTimeout(updateEmailPreview, 50);
-      setUiStatus("명사형 문장을 줄이고, 짧은 요체 문장으로 다듬었습니다.", "done");
+      setUiStatus(`전체 문장을 ${styleLabels[style]} 적용했습니다.`, "done");
     } catch (error) {
       setUiStatus(error instanceof Error ? error.message : "문장체 다듬기 중 오류가 발생했습니다.", "error");
     } finally {
@@ -365,13 +373,33 @@ export function NewsletterBuilder() {
               label="이번 호 만들기"
               variant="primary"
             />
-            <div className="grid grid-cols-2 gap-2">
-              <ActionButton
-                onClick={polishWriting}
-                disabled={!newsletter || isLoading}
-                icon={<Sparkles size={17} />}
-                label="간결하게 다듬기"
-              />
+            <div className="rounded-[8px] border border-white/10 bg-white/[0.04] p-3">
+              <p className="mb-2 text-xs font-black uppercase tracking-[0.16em] text-zinc-500">문장 전체 적용</p>
+              <div className="grid grid-cols-3 gap-2">
+                <ActionButton
+                  onClick={() => polishWriting("concise")}
+                  disabled={!newsletter || isLoading}
+                  icon={<Sparkles size={15} />}
+                  label="짧게"
+                  compact
+                />
+                <ActionButton
+                  onClick={() => polishWriting("expand")}
+                  disabled={!newsletter || isLoading}
+                  icon={<Sparkles size={15} />}
+                  label="자세히"
+                  compact
+                />
+                <ActionButton
+                  onClick={() => polishWriting("natural")}
+                  disabled={!newsletter || isLoading}
+                  icon={<Sparkles size={15} />}
+                  label="자연스럽게"
+                  compact
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 gap-2">
               <ActionButton
                 onClick={refreshImages}
                 disabled={!newsletter || isLoading}
@@ -451,12 +479,14 @@ function ActionButton({
   icon,
   label,
   variant = "secondary",
+  compact = false,
 }: {
   onClick: () => void;
   disabled?: boolean;
   icon: React.ReactNode;
   label: string;
   variant?: "primary" | "secondary" | "danger";
+  compact?: boolean;
 }) {
   const variants = {
     primary: "border-[#d7ff64] bg-[#d7ff64] text-[#111111] hover:bg-[#e5ff8f]",
@@ -468,7 +498,7 @@ function ActionButton({
     <button
       onClick={onClick}
       disabled={disabled}
-      className={`flex min-h-12 items-center justify-center gap-2 rounded-[8px] border px-4 py-3 text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-40 ${variants[variant]}`}
+      className={`flex items-center justify-center gap-2 rounded-[8px] border font-black transition disabled:cursor-not-allowed disabled:opacity-40 ${compact ? "min-h-10 px-2 py-2 text-xs" : "min-h-12 px-4 py-3 text-sm"} ${variants[variant]}`}
     >
       {icon}
       {label}
