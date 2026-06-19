@@ -21,8 +21,7 @@ export async function deliverNewsletterViaGmail(payload: GmailPayload): Promise<
   const sender = process.env.GMAIL_SENDER_EMAIL || payload.senderEmail || (await getGoogleAccountEmail(accessToken));
   const raw = createMimeMessage({
     from: sender,
-    to: sender,
-    bcc: payload.to,
+    to: payload.to,
     subject: payload.subject,
     html: payload.html,
   });
@@ -57,20 +56,17 @@ export async function deliverNewsletterViaGmail(payload: GmailPayload): Promise<
 function createMimeMessage({
   from,
   to,
-  bcc,
   subject,
   html,
 }: {
   from: string;
-  to: string;
-  bcc: string[];
+  to: string[];
   subject: string;
   html: string;
 }) {
   const headers = [
     `From: ${from}`,
-    `To: ${to}`,
-    `Bcc: ${bcc.join(", ")}`,
+    `To: ${to.join(", ")}`,
     `Subject: ${encodeMimeSubject(subject)}`,
     "MIME-Version: 1.0",
     'Content-Type: text/html; charset="UTF-8"',
