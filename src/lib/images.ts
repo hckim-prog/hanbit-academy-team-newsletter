@@ -5,7 +5,7 @@ const IMAGE_COUNT = Number(process.env.NEWSLETTER_IMAGE_COUNT ?? "4");
 
 export async function addGeneratedImages(newsletter: Newsletter): Promise<Newsletter> {
   if (!process.env.OPENAI_API_KEY) {
-    return addFallbackImages(newsletter, "OpenAI API key is not configured");
+    return addFallbackPhotos(newsletter);
   }
 
   const targets = [
@@ -38,7 +38,7 @@ export async function addGeneratedImages(newsletter: Newsletter): Promise<Newsle
     };
   } catch (error) {
     console.error("Image generation failed", error);
-    return addFallbackImages(newsletter, "Image generation failed");
+    return addFallbackPhotos(newsletter);
   }
 }
 
@@ -77,55 +77,43 @@ async function generateImage(prompt: string, index: number): Promise<string> {
   return `data:image/png;base64,${imageData}`;
 }
 
-function addFallbackImages(newsletter: Newsletter, reason: string): Newsletter {
+function addFallbackPhotos(newsletter: Newsletter): Newsletter {
   return {
     ...newsletter,
-    heroImageUrl: fallbackSvg("hero", reason),
+    heroImageUrl: realPhotoUrl(newsletter.heroImagePrompt, "hero"),
     sections: newsletter.sections.map((section) => ({
       ...section,
-      imageUrl: fallbackSvg(section.tone, reason),
+      imageUrl: realPhotoUrl(`${section.title} ${section.body.join(" ")} ${section.imagePrompt}`, section.id),
     })),
   };
 }
 
-function fallbackSvg(tone: string, reason: string): string {
-  const palettes: Record<string, [string, string, string]> = {
-    hero: ["#ffd166", "#ff7a59", "#fff7e8"],
-    sky: ["#5ab1ef", "#cfefff", "#ffffff"],
-    mint: ["#61d394", "#ddf9e8", "#ffffff"],
-    coral: ["#ff7a59", "#ffe0d6", "#ffffff"],
-    violet: ["#9b8cff", "#ece8ff", "#ffffff"],
-    sun: ["#ffd166", "#fff1bd", "#ffffff"],
-  };
-  const [a, b, c] = palettes[tone] ?? palettes.hero;
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="760" viewBox="0 0 1200 760">
-    <rect width="1200" height="760" rx="48" fill="${c}"/>
-    <circle cx="240" cy="210" r="145" fill="${a}" opacity=".85"/>
-    <circle cx="890" cy="230" r="190" fill="${b}" opacity=".9"/>
-    <rect x="250" y="360" width="700" height="155" rx="42" fill="${a}" opacity=".28"/>
-    <rect x="320" y="300" width="560" height="250" rx="56" fill="#fff" stroke="${a}" stroke-width="10"/>
-    <path d="M410 410h380M410 470h270" stroke="#172033" stroke-width="24" stroke-linecap="round" opacity=".22"/>
-    <path d="M840 390l40 44 76-96" stroke="${a}" stroke-width="28" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-    <text x="600" y="650" text-anchor="middle" font-family="Arial, sans-serif" font-size="28" fill="#73531a">${escapeXml(reason)}</text>
-  </svg>`;
-  return `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`;
+function realPhotoUrl(source: string, salt: string): string {
+  const keywords = photoKeywords(source);
+  const lock = stableHash(`${salt}:${source}`);
+  return `https://loremflickr.com/1200/800/${keywords.join(",")}?lock=${lock}`;
 }
 
-function escapeXml(value: string): string {
-  return value.replace(/[<>&'"]/g, (char) => {
-    switch (char) {
-      case "<":
-        return "&lt;";
-      case ">":
-        return "&gt;";
-      case "&":
-        return "&amp;";
-      case "'":
-        return "&apos;";
-      case '"':
-        return "&quot;";
-      default:
-        return char;
-    }
-  });
+function photoKeywords(source: string): string[] {
+  const normalized = source.toLowerCase();
+  const dictionary: Array<[RegExp, string[]]> = [
+    [/세미나|seminar|webinar|online|학생|student|class|lecture/, ["seminar", "students", "education"]],
+    [/교재|교과서|book|textbook|콘텐츠|content/, ["books", "education", "technology"]],
+    [/ai|인공지능|data|데이터|cloud|digital|디지털/, ["technology", "computer", "office"]],
+    [/영업|sales|field|현장|catalog|catalogue/, ["business", "meeting", "office"]],
+    [/검수|quality|check|리스크|risk|link|file|calendar/, ["workspace", "laptop", "planning"]],
+    [/협업|feedback|review|공유|team|coworker/, ["teamwork", "office", "collaboration"]],
+  ];
+
+  const matched = dictionary.find(([pattern]) => pattern.test(normalized));
+  return matched?.[1] ?? ["education", "technology", "office"];
+}
+
+function stableHash(value: string): number {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return Math.abs(hash % 100000);
 }

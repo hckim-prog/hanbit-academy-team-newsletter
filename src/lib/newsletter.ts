@@ -18,7 +18,7 @@ export function buildNewsletter(report: RawReport): Newsletter {
       tone: "sun",
       body: [buildOneLine(bright, next)],
       imagePrompt: imagePrompt(
-        "A compact cheerful editorial illustration showing a digital transformation team newsletter overview, bright office desk, sticky notes, tablet, books, clean Korean edtech vibe, no text.",
+        `A photorealistic editorial photo for a Korean education technology team newsletter overview. Show a modern office desk with digital textbooks, tablet, laptop, planning notes, and warm natural daylight. Main story: ${buildOneLine(bright, next)}`,
       ),
     },
     {
@@ -28,7 +28,7 @@ export function buildNewsletter(report: RawReport): Newsletter {
       tone: "mint",
       body: focus,
       imagePrompt: imagePrompt(
-        "A cute energetic editorial illustration of a team organizing digital textbooks, tablets, checklists, and class materials for sales field use, playful but professional, no text.",
+        `A photorealistic documentary-style photo of a team organizing digital textbooks, tablet screens, checklists, and education materials for field sales and internal sharing. Related tasks: ${focus.join(" ")}`,
       ),
     },
     {
@@ -38,7 +38,7 @@ export function buildNewsletter(report: RawReport): Newsletter {
       tone: "sky",
       body: bright,
       imagePrompt: imagePrompt(
-        "A lively optimistic illustration of students joining an online seminar, video call tiles, cheerful learning atmosphere, warm colors, no text.",
+        `A photorealistic upbeat photo of students and educators participating in an online seminar or digital learning session, with laptops, classroom energy, and a positive mood. Related signal: ${bright.join(" ")}`,
       ),
     },
     {
@@ -48,7 +48,7 @@ export function buildNewsletter(report: RawReport): Newsletter {
       tone: "coral",
       body: watching,
       imagePrompt: imagePrompt(
-        "A neat editorial illustration of quality checks for digital purchase links and data files, magnifying glass, calendar, folder, small UI panels, no text.",
+        `A photorealistic close-up photo of quality checking digital links, spreadsheets, schedules, and files on a laptop in an office workspace. Watch points: ${watching.join(" ")}`,
       ),
     },
     {
@@ -58,7 +58,7 @@ export function buildNewsletter(report: RawReport): Newsletter {
       tone: "violet",
       body: next,
       imagePrompt: imagePrompt(
-        "A playful roadmap illustration with three priority markers, digital books, AI data cloud, seminar follow-up notes, clean vector style, no text.",
+        `A photorealistic planning photo showing a two-week roadmap, digital book work, AI/data review, seminar follow-up notes, and priority planning on a modern worktable. Next priorities: ${next.join(" ")}`,
       ),
     },
     {
@@ -68,7 +68,7 @@ export function buildNewsletter(report: RawReport): Newsletter {
       tone: "sky",
       body: request.length ? request : ["이번 호의 별도 협업 요청은 없습니다."],
       imagePrompt: imagePrompt(
-        "A friendly collaboration illustration with coworkers reviewing a polished newsletter and sharing feedback, soft office colors, no text.",
+        `A photorealistic photo of coworkers reviewing a newsletter draft and sharing feedback in a calm modern office, collaborative and friendly. Collaboration notes: ${request.join(" ")}`,
       ),
     },
   ];
@@ -82,7 +82,7 @@ export function buildNewsletter(report: RawReport): Newsletter {
     heroTitle: "디콘전TF 소식이 도착했어요",
     heroSubtitle: `${report.displayDate} 기준으로 정리한 ${TEAM_NAME} 격주 뉴스레터입니다.`,
     heroImagePrompt: imagePrompt(
-      "A bright charming hero illustration for a Korean digital content transformation team newsletter. Show books becoming tablets, a friendly AI sparkle, seminar screen, soft modern office, cute but professional editorial style, no readable text.",
+      `A photorealistic magazine-style hero photo for a Korean digital content transformation team newsletter. Show books, tablets, laptop, AI-assisted workflow, seminar screen, and a modern education office atmosphere. Date: ${report.displayDate}.`,
     ),
     sections,
     closing: "다음 소식도 가볍게 읽히지만 알맹이는 또렷하게 정리해 올게요.",
@@ -160,7 +160,7 @@ function trimEndMark(text: string): string {
 }
 
 function imagePrompt(prompt: string): string {
-  return `${prompt} Use a bright newsletter-ready composition, rounded friendly shapes, rich but clean color palette, no logos, no watermark, no readable letters.`;
+  return `${prompt} Make it look like a real professional photo, not an illustration or cartoon. Use editorial lighting, clean composition, realistic people or hands when useful, no logos, no watermark, no readable text.`;
 }
 
 function formatKoreanDateTime(date: Date): string {
