@@ -20,7 +20,7 @@ export function buildNewsletter(report: RawReport): Newsletter {
       tone: "sun",
       body: [buildOneLine(bright, next)],
       imagePrompt: imagePrompt(
-        `A photorealistic editorial photo for a Korean education technology team newsletter overview. Show a modern office desk with digital textbooks, tablet, laptop, planning notes, and warm natural daylight. Main story: ${buildOneLine(bright, next)}`,
+        `A photorealistic editorial overview photo for a Korean education technology and publishing team newsletter. Show a varied workspace with printed books, digital textbooks, a tablet, a calendar, sticky planning notes, and one laptop partly off to the side under warm natural daylight. Main story: ${buildOneLine(bright, next)}`,
       ),
     },
     {
@@ -30,7 +30,7 @@ export function buildNewsletter(report: RawReport): Newsletter {
       tone: "mint",
       body: focus,
       imagePrompt: imagePrompt(
-        `A photorealistic documentary-style photo of a team organizing digital textbooks, tablet screens, checklists, and education materials for field sales and internal sharing. Related tasks: ${focus.join(" ")}`,
+        `A photorealistic documentary-style photo of Korean adult professionals preparing education publishing materials for sales and internal sharing. Show hands sorting printed sample books, tablets with blurred content, catalog sheets, file folders, and checklist pages on a worktable, not a generic laptop-only meeting. Related tasks: ${focus.join(" ")}`,
       ),
     },
     {
@@ -40,7 +40,7 @@ export function buildNewsletter(report: RawReport): Newsletter {
       tone: "sky",
       body: bright,
       imagePrompt: imagePrompt(
-        `A photorealistic upbeat photo of students and educators participating in an online seminar or digital learning session, with laptops, classroom energy, and a positive mood. Related signal: ${bright.join(" ")}`,
+        `A photorealistic upbeat photo of an online seminar or professional education session for adult educators and business partners. Show a presenter area, a large screen with unreadable blurred slides, notebooks, microphones or tablets, and attentive Korean adult participants, with positive energy and no schoolchildren. Related signal: ${bright.join(" ")}`,
       ),
     },
     {
@@ -50,7 +50,7 @@ export function buildNewsletter(report: RawReport): Newsletter {
       tone: "coral",
       body: watching,
       imagePrompt: imagePrompt(
-        `A photorealistic close-up photo of quality checking digital links, spreadsheets, schedules, and files on a laptop in an office workspace. Watch points: ${watching.join(" ")}`,
+        `A photorealistic close-up quality review photo with a different mood from the other images. Show spreadsheet-like grids blurred on a monitor, printed QA notes, marked checkboxes, link verification notes, a calendar corner, and a hand using a pen or trackpad in a quiet office workspace. Watch points: ${watching.join(" ")}`,
       ),
     },
     {
@@ -60,7 +60,7 @@ export function buildNewsletter(report: RawReport): Newsletter {
       tone: "violet",
       body: next,
       imagePrompt: imagePrompt(
-        `A photorealistic planning photo showing a two-week roadmap, digital book work, AI/data review, seminar follow-up notes, and priority planning on a modern worktable. Next priorities: ${next.join(" ")}`,
+        `A photorealistic project planning photo showing a two-week roadmap from a top-down or angled perspective. Include a whiteboard or planning board, colored sticky notes, printed roadmap sheets, digital book work artifacts, AI/data review notes, and seminar follow-up materials arranged with clear depth. Next priorities: ${next.join(" ")}`,
       ),
     },
     {
@@ -70,7 +70,7 @@ export function buildNewsletter(report: RawReport): Newsletter {
       tone: "sky",
       body: request.length ? request : ["이번 호의 별도 협업 요청은 없습니다."],
       imagePrompt: imagePrompt(
-        `A photorealistic photo of coworkers reviewing a newsletter draft and sharing feedback in a calm modern office, collaborative and friendly. Collaboration notes: ${request.join(" ")}`,
+        `A photorealistic collaborative review photo of Korean adult coworkers giving feedback on a newsletter or content draft. Show annotated printouts, comment notes, a tablet with blurred layout blocks, coffee cups, and relaxed teamwork in a small review corner rather than a formal boardroom. Collaboration notes: ${request.join(" ")}`,
       ),
     },
   ];
@@ -85,7 +85,7 @@ export function buildNewsletter(report: RawReport): Newsletter {
     heroTitle: "디콘전TF 소식이 도착했어요",
     heroSubtitle: `${displayMonth} 소식을 정리한 ${TEAM_NAME} 격주 뉴스레터입니다.`,
     heroImagePrompt: imagePrompt(
-      `A photorealistic magazine-style hero photo for a Korean digital content transformation team newsletter. Show books, tablets, laptop, AI-assisted workflow, seminar screen, and a modern education office atmosphere. Issue month: ${displayMonth}.`,
+      `A photorealistic magazine-style hero photo for a Korean digital content transformation and education publishing team newsletter. Show a rich first-glance scene with books, tablets, editorial notes, a seminar screen in the distance, AI-assisted workflow hints, project planning materials, and a modern education office atmosphere. Issue month: ${displayMonth}.`,
     ),
     sections,
     closing: "다음 소식도 가볍게 읽히지만 알맹이는 또렷하게 정리해 올게요.",

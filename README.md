@@ -18,6 +18,7 @@ Vercel에 배포해서 쓰는 디지털콘텐츠전환TF 격주 뉴스레터 생
 - Awwwards 스타일을 참고한 매거진형 웹 뉴스레터 프리뷰
 - GitHub 인기 교정 도구의 방향을 참고해 명사형 보고 문장을 짧은 요체 문장으로 다듬기
 - 같은 내용에서도 매번 다른 이미지 조합을 고르는 이미지 새로고침
+- 이미지 생성 실패 시에도 여러 주제 풀을 섞은 실사진 fallback 사용
 - Vercel 배포 가능
 
 ## 로컬 실행
@@ -51,7 +52,7 @@ GOOGLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\
 
 # 선택 설정
 OPENAI_TEXT_MODEL=gpt-4.1-mini
-NEWSLETTER_IMAGE_COUNT=4
+NEWSLETTER_IMAGE_COUNT=7
 
 # Gmail 발송 기능
 GMAIL_CLIENT_ID=...
@@ -66,7 +67,9 @@ GMAIL_SENDER_EMAIL=sender@example.com
 ACADEMY_NEWSLETTER_RECIPIENTS=member1@example.com,member2@example.com
 ```
 
-OpenAI 이미지 생성이 billing hard limit, quota, model access 문제로 실패하면 앱은 뉴스레터가 깨지지 않도록 본문 키워드 기반의 실사진을 자동으로 표시합니다. 결제 한도 또는 모델 접근 권한이 정상화되면 같은 버튼으로 AI 생성 실사진 스타일 이미지가 들어갑니다.
+`NEWSLETTER_IMAGE_COUNT`를 비워두면 히어로와 모든 섹션에 이미지를 붙입니다. 값을 지정하면 최대 이미지 수를 제한합니다.
+
+OpenAI 이미지 생성이 billing hard limit, quota, model access 문제로 실패하면 앱은 뉴스레터가 깨지지 않도록 본문 키워드 기반의 실사진을 자동으로 표시합니다. fallback 사진은 세미나, 교재/출판, AI/데이터, 영업, 검수, 협업, 일정/로드맵 등 여러 주제 후보를 섞어 고릅니다. 결제 한도 또는 모델 접근 권한이 정상화되면 같은 버튼으로 AI 생성 실사진 스타일 이미지가 들어갑니다.
 
 Google Sheet가 비공개라면 서비스 계정을 만들고 원본 스프레드시트에 해당 서비스 계정 이메일을 보기 권한으로 공유하세요.
 
