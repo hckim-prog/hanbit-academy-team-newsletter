@@ -202,7 +202,7 @@ function hasFinalConsonant(char: string): boolean {
 }
 
 function imagePrompt(prompt: string): string {
-  return `${prompt} Make it look like a real professional photo, not an illustration or cartoon. Use editorial lighting, clean composition, realistic Korean adult professionals or hands when people are useful. Avoid children, minors, schoolchildren, elementary or middle school students, and Chinese-specific visual settings. No logos, no watermark, no readable text.`;
+  return `${prompt} Make it look like a real professional photo, not an illustration or cartoon. Use editorial lighting, clean composition, and a realistic Seoul office or Korean education-publishing workplace atmosphere. When people are useful, show Korean or East Asian adult professionals, coworkers, presenters, or hands at work. Avoid Western stock-photo casting, children, minors, schoolchildren, elementary or middle school students, and Chinese-specific visual settings. No logos, no watermark, no readable text.`;
 }
 
 function formatKoreanDateTime(date: Date): string {

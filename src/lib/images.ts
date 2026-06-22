@@ -56,11 +56,11 @@ function resolveImageCount(newsletter: Newsletter): number {
 
 function diversifyPrompt(prompt: string, imageSeed: string, index: number): string {
   const directions = [
-    "wide editorial scene with layered foreground objects and people in the background",
+    "wide editorial scene with layered foreground objects and Korean or East Asian adult professionals in the background",
     "close documentary detail of hands, printed materials, screens, and tools in use",
     "over-the-shoulder workplace moment with a screen, notes, and natural human activity",
     "clean flat-lay composition of books, tablets, schedules, and review documents",
-    "meeting-room perspective with presentation materials, notebooks, and quiet collaboration",
+    "meeting-room perspective with presentation materials, notebooks, and Korean or East Asian adult collaborators",
     "bright candid office moment with movement, depth, and realistic Korean workplace context",
     "focused desk-level shot with calendar marks, QA notes, and digital workflow artifacts",
   ];
@@ -69,7 +69,7 @@ function diversifyPrompt(prompt: string, imageSeed: string, index: number): stri
   return `${prompt}
 Variation seed: ${imageSeed}-${index}.
 Composition direction: ${direction}.
-Make this image visually distinct from the other newsletter images in subject distance, angle, lighting, and object mix. Avoid repeating the same desk, laptop-only setup, or generic office meeting composition.`;
+Make this image visually distinct from the other newsletter images in subject distance, angle, lighting, and object mix. If people appear, cast Korean or East Asian adult professionals in a realistic Seoul office or publishing-workplace atmosphere. Avoid Western stock-photo casting, repeating the same desk, laptop-only setup, or generic office meeting composition.`;
 }
 
 async function generateImage(prompt: string, index: number): Promise<string> {
@@ -146,8 +146,33 @@ function curatedPhotoUrls(source: string): string[] {
   const normalized = source.toLowerCase();
   const dictionary: Array<[RegExp, string[]]> = [
     [
+      /korean|한국|east asian|asian|동아시아|professionals?|coworkers?|team|meeting|collaboration|office|business|세미나|협업|회의|공유|영업/,
+      [
+        unsplash("photo-1731458769726-cef60c792665"),
+        unsplash("photo-1754531976828-69e42ce4e0d9"),
+        unsplash("photo-1565350831386-8c52421af9fa"),
+        unsplash("photo-1633954319432-730a628b0388"),
+        unsplash("photo-1754461188805-a5e3b6631b63"),
+        unsplash("photo-1646579886741-12b59840c63f"),
+      ],
+    ],
+    [
+      /seoul|서울|gangnam|korea|south korea|한국|도시|city|office building|library|교재|교과서|book|출판/,
+      [
+        unsplash("photo-1754461188805-a5e3b6631b63"),
+        unsplash("photo-1633954319432-730a628b0388"),
+        unsplash("photo-1565350831386-8c52421af9fa"),
+        unsplash("photo-1516979187457-637abb4f9353"),
+        unsplash("photo-1532012197267-da84d127e765"),
+        unsplash("photo-1544716278-ca5e3f4abd8c"),
+        unsplash("photo-1519682337058-a94d519337bc"),
+      ],
+    ],
+    [
       /세미나|seminar|webinar|online|class|lecture/,
       [
+        unsplash("photo-1731458769726-cef60c792665"),
+        unsplash("photo-1565350831386-8c52421af9fa"),
         unsplash("photo-1559223607-a43c990c692c"),
         unsplash("photo-1517245386807-bb43f82c33c4"),
         unsplash("photo-1556761175-b413da4baf72"),
@@ -173,6 +198,8 @@ function curatedPhotoUrls(source: string): string[] {
     [
       /교재|교과서|book|textbook|콘텐츠|content|출판|편집|원고|publication|publishing|editorial/,
       [
+        unsplash("photo-1754461188805-a5e3b6631b63"),
+        unsplash("photo-1565350831386-8c52421af9fa"),
         unsplash("photo-1516321318423-f06f85e504b3"),
         unsplash("photo-1456513080510-7bf3a84b82f8"),
         unsplash("photo-1497366811353-6870744d04b2"),
@@ -223,6 +250,8 @@ function curatedPhotoUrls(source: string): string[] {
     [
       /영업|sales|field|현장|catalog|catalogue|customer|client|partner|b2b|business/,
       [
+        unsplash("photo-1731458769726-cef60c792665"),
+        unsplash("photo-1754531976828-69e42ce4e0d9"),
         unsplash("photo-1556761175-b413da4baf72"),
         unsplash("photo-1552664730-d307ca884978"),
         unsplash("photo-1517245386807-bb43f82c33c4"),
@@ -273,6 +302,9 @@ function curatedPhotoUrls(source: string): string[] {
     [
       /협업|feedback|review|공유|team|coworker|meeting|planning|project|comment/,
       [
+        unsplash("photo-1731458769726-cef60c792665"),
+        unsplash("photo-1754531976828-69e42ce4e0d9"),
+        unsplash("photo-1565350831386-8c52421af9fa"),
         unsplash("photo-1552664730-d307ca884978"),
         unsplash("photo-1556761175-b413da4baf72"),
         unsplash("photo-1517245386807-bb43f82c33c4"),
@@ -298,6 +330,9 @@ function curatedPhotoUrls(source: string): string[] {
     [
       /newsletter|소식|요약|overview|brief|issue|월|month/,
       [
+        unsplash("photo-1731458769726-cef60c792665"),
+        unsplash("photo-1565350831386-8c52421af9fa"),
+        unsplash("photo-1754461188805-a5e3b6631b63"),
         unsplash("photo-1497366754035-f200968a6e72"),
         unsplash("photo-1497366811353-6870744d04b2"),
         unsplash("photo-1516321318423-f06f85e504b3"),
@@ -329,6 +364,11 @@ function curatedPhotoUrls(source: string): string[] {
 
   const matched = dictionary.flatMap(([pattern, photos]) => (pattern.test(normalized) ? photos : []));
   const fallback = [
+    unsplash("photo-1731458769726-cef60c792665"),
+    unsplash("photo-1754531976828-69e42ce4e0d9"),
+    unsplash("photo-1565350831386-8c52421af9fa"),
+    unsplash("photo-1633954319432-730a628b0388"),
+    unsplash("photo-1754461188805-a5e3b6631b63"),
     unsplash("photo-1497366754035-f200968a6e72"),
     unsplash("photo-1497366811353-6870744d04b2"),
     unsplash("photo-1516321318423-f06f85e504b3"),
