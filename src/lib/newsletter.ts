@@ -2,16 +2,15 @@ import type { Newsletter, NewsletterSection, RawReport } from "./types";
 import { normalizeNewsletterItems, normalizeNewsletterSentence } from "./korean-style";
 
 const TEAM_NAME = "디지털콘텐츠전환TF";
-const SOURCE_BLOCK_SEPARATOR = "---SOURCE---";
 
 export function buildNewsletter(report: RawReport): Newsletter {
   const displayMonth = toDisplayMonth(report.displayDate);
   const signals = parseSignalSections(report.signals);
-  const bright = compactBullets([signals["긍정 신호"], signals["새로운 기회"]], 8);
-  const focus = compactBullets([report.operations], 14);
-  const watching = compactBullets([signals["약한 신호"], signals["리스크"], report.operations], 12);
-  const next = extractTopItems(report.next, 8);
-  const request = compactBullets([report.support, report.request], 8);
+  const bright = compactBullets([signals["긍정 신호"], signals["새로운 기회"]], 6);
+  const focus = compactBullets([report.operations], 8);
+  const watching = compactBullets([signals["약한 신호"], signals["리스크"], report.operations], 8);
+  const next = extractTopItems(report.next, 6);
+  const request = compactBullets([report.support, report.request], 5);
 
   const sections: NewsletterSection[] = [
     {
@@ -115,18 +114,18 @@ function parseSignalSections(text: string): Record<string, string> {
 }
 
 function compactBullets(blocks: Array<string | undefined>, limit: number): string[] {
-  const itemGroups = blocks
-    .filter((block): block is string => Boolean(block))
-    .flatMap((block) => splitSourceBlocks(block))
-    .map((block) =>
-      splitTopLevelItems(block)
-        .filter((line) => !isSignalHeading(line))
-        .filter((line) => line && line !== "없음")
-        .flatMap((line) => normalizeNewsletterItems([toNewsletterSentence(line)], 2)),
-    )
-    .filter((items) => items.length);
+  const items = blocks
+    .filter(Boolean)
+    .join("\n")
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => line.replace(/^[-•ㄴ\s]+/, "").replace(/^\d+[.)]\s*/, "").trim())
+    .filter((line) => !isSignalHeading(line))
+    .filter((line) => line && line !== "없음")
+    .map(toNewsletterSentence);
 
-  return dedupeSimilarItems(roundRobin(itemGroups)).slice(0, limit);
+  return normalizeNewsletterItems(dedupeSimilarItems(items), limit);
 }
 
 function isSignalHeading(line: string): boolean {
@@ -134,14 +133,6 @@ function isSignalHeading(line: string): boolean {
 }
 
 function extractTopItems(text: string, limit: number): string[] {
-  const groups = splitSourceBlocks(text)
-    .map((block) => extractTopItemsFromSingleBlock(block, limit))
-    .filter((items) => items.length);
-
-  return dedupeSimilarItems(roundRobin(groups)).slice(0, limit);
-}
-
-function extractTopItemsFromSingleBlock(text: string, limit: number): string[] {
   const matches = text.trim().match(/Top\s*\d+[\s\S]*?(?=\n\s*Top\s*\d+|$)/gi);
   if (!matches) {
     return compactBullets([text], limit);
@@ -231,47 +222,6 @@ function canonicalSignalHeading(value: string): string {
     return "새로운 기회";
   }
   return "리스크";
-}
-
-function splitSourceBlocks(value: string): string[] {
-  return value
-    .split(SOURCE_BLOCK_SEPARATOR)
-    .map((block) => block.trim())
-    .filter(Boolean);
-}
-
-function splitTopLevelItems(block: string): string[] {
-  const lines = block
-    .replace(/\r\n/g, "\n")
-    .split(/\n+/)
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .filter((line) => line !== SOURCE_BLOCK_SEPARATOR)
-    .map((line) => line.replace(/^[-•ㄴ*\s]+/, "").replace(/^\d+[.)]\s*/, "").trim())
-    .filter(Boolean)
-    .filter((line) => !isShortHeading(line));
-
-  return lines;
-}
-
-function isShortHeading(line: string): boolean {
-  return line.length <= 18 && /(?:건|현재|기타)\.?$/u.test(line);
-}
-
-function roundRobin<T>(groups: T[][]): T[] {
-  const result: T[] = [];
-  const maxLength = Math.max(0, ...groups.map((group) => group.length));
-
-  for (let index = 0; index < maxLength; index += 1) {
-    for (const group of groups) {
-      const item = group[index];
-      if (item !== undefined) {
-        result.push(item);
-      }
-    }
-  }
-
-  return result;
 }
 
 function dedupeSimilarItems(items: string[]): string[] {

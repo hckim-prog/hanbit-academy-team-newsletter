@@ -12,7 +12,6 @@ const DEFAULT_MEMBER_SHEETS = process.env.GOOGLE_SHEETS_MEMBER_SHEETS ?? "김태
 const SOURCE_HEADER = "주간업무보고(2주간격)";
 const READ_RANGE = "A1:F1200";
 const MIN_CONTENT_CELLS = 2;
-const SOURCE_BLOCK_SEPARATOR = "\n\n---SOURCE---\n\n";
 
 type SheetSource = {
   name: string;
@@ -195,7 +194,7 @@ function joinReportBlocks(blocks: string[]): string {
   return blocks
     .map((block) => block.trim())
     .filter(Boolean)
-    .join(SOURCE_BLOCK_SEPARATOR);
+    .join("\n\n");
 }
 
 function hasEnoughReportContent(row: string[]): boolean {
