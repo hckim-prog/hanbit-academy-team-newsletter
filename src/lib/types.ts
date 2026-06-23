@@ -1,15 +1,7 @@
-export type RawReportSource = {
-  name: string;
-  displayDate: string;
-  parsedTime: number;
-  sourceRange: string;
-};
-
 export type RawReport = {
   displayDate: string;
   parsedTime: number;
   sourceRange: string;
-  sources: RawReportSource[];
   signals: string;
   operations: string;
   support: string;
