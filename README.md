@@ -7,8 +7,9 @@ Vercel에 배포해서 쓰는 디지털콘텐츠전환TF 격주 뉴스레터 생
 
 ## 기능
 
-- `김호철` 시트의 최신 `주간업무보고(2주간격)` 행 자동 탐색
-- 최신 보고 행 `A:F`를 뉴스레터 섹션으로 변환
+- `김호철` 시트의 최신 유효 `주간업무보고(2주간격)` 행 자동 탐색
+- `김태진`, `손혜진` 시트의 최신 유효 보고 행을 보강 소스로 함께 반영
+- 최신 보고 행 `A:F`를 중복 제거 후 뉴스레터 섹션으로 변환
 - OpenAI 이미지 생성으로 히어로 이미지와 섹션 이미지 생성
 - 웹 화면에서 본문 직접 검수/수정
 - HTML 복사
@@ -42,6 +43,11 @@ OPENAI_IMAGE_MODEL=gpt-image-2
 # 기본값이 이미 들어 있지만, 다른 문서를 쓰려면 설정합니다.
 GOOGLE_SHEETS_SPREADSHEET_ID=1M1U0-RTNhlkS9bWvOaALYHW7Mup8sxXboS2wZJPwpN8
 GOOGLE_SHEETS_SOURCE_SHEET=김호철
+GOOGLE_SHEETS_MEMBER_SPREADSHEET_ID=1XxHN1CdHfEwWqzm71pE0iUsbco9WzPm7QzpM2wTxlHw
+GOOGLE_SHEETS_MEMBER_SHEETS=김태진,손혜진
+
+# 선택: 여러 소스를 한 줄로 직접 지정하려면 사용합니다. 첫 번째 소스가 기준 날짜가 됩니다.
+# GOOGLE_SHEETS_SOURCES=김호철:1M1U0-RTNhlkS9bWvOaALYHW7Mup8sxXboS2wZJPwpN8:김호철,김태진:1XxHN1CdHfEwWqzm71pE0iUsbco9WzPm7QzpM2wTxlHw:김태진,손혜진:1XxHN1CdHfEwWqzm71pE0iUsbco9WzPm7QzpM2wTxlHw:손혜진
 
 # 방법 1: 공개/도메인 허용 API 키
 GOOGLE_SHEETS_API_KEY=...

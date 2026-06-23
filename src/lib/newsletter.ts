@@ -6,11 +6,11 @@ const TEAM_NAME = "디지털콘텐츠전환TF";
 export function buildNewsletter(report: RawReport): Newsletter {
   const displayMonth = toDisplayMonth(report.displayDate);
   const signals = parseSignalSections(report.signals);
-  const bright = compactBullets([signals["긍정 신호"], signals["새로운 기회"]], 4);
-  const focus = compactBullets([report.operations], 4);
-  const watching = compactBullets([signals["약한 신호"], signals["리스크"], report.operations], 4);
-  const next = extractTopItems(report.next);
-  const request = compactBullets([report.support, report.request], 3);
+  const bright = compactBullets([signals["긍정 신호"], signals["새로운 기회"]], 6);
+  const focus = compactBullets([report.operations], 8);
+  const watching = compactBullets([signals["약한 신호"], signals["리스크"], report.operations], 8);
+  const next = extractTopItems(report.next, 6);
+  const request = compactBullets([report.support, report.request], 5);
 
   const sections: NewsletterSection[] = [
     {
@@ -101,11 +101,13 @@ function parseSignalSections(text: string): Record<string, string> {
   const result: Record<string, string> = {};
   const source = text.replace(/\r\n/g, "\n");
   const regex =
-    /•\s*(긍정 신호|약한 신호|새로운 기회|리스크)\s*\n([\s\S]*?)(?=\n\s*•\s*(?:긍정 신호|약한 신호|새로운 기회|리스크)\s*\n|$)/g;
+    /[•-]\s*(긍정\s*신호|약한\s*신호|새로운\s*기회|리스크)\s*\n([\s\S]*?)(?=\n\s*[•-]\s*(?:긍정\s*신호|약한\s*신호|새로운\s*기회|리스크)\s*\n|$)/g;
   let match: RegExpExecArray | null;
 
   while ((match = regex.exec(source)) !== null) {
-    result[match[1]] = match[2].trim();
+    result[canonicalSignalHeading(match[1])] = [result[canonicalSignalHeading(match[1])], match[2].trim()]
+      .filter(Boolean)
+      .join("\n");
   }
 
   return result;
@@ -118,31 +120,34 @@ function compactBullets(blocks: Array<string | undefined>, limit: number): strin
     .split(/\n+/)
     .map((line) => line.trim())
     .filter(Boolean)
-    .map((line) => line.replace(/^[-•ㄴ\s]+/, "").trim())
+    .map((line) => line.replace(/^[-•ㄴ\s]+/, "").replace(/^\d+[.)]\s*/, "").trim())
     .filter((line) => !isSignalHeading(line))
     .filter((line) => line && line !== "없음")
     .map(toNewsletterSentence);
 
-  return normalizeNewsletterItems([...new Set(items)], limit);
+  return normalizeNewsletterItems(dedupeSimilarItems(items), limit);
 }
 
 function isSignalHeading(line: string): boolean {
-  return /^(긍정 신호|약한 신호|새로운 기회|리스크)$/u.test(line.replace(/[.。:：]$/g, "").trim());
+  return /^(긍정\s*신호|약한\s*신호|새로운\s*기회|리스크)$/u.test(line.replace(/[.。:：]$/g, "").trim());
 }
 
-function extractTopItems(text: string): string[] {
+function extractTopItems(text: string, limit: number): string[] {
   const matches = text.trim().match(/Top\s*\d+[\s\S]*?(?=\n\s*Top\s*\d+|$)/gi);
   if (!matches) {
-    return compactBullets([text], 3);
+    return compactBullets([text], limit);
   }
 
-  return matches.slice(0, 3).map((item) => {
+  const topItems = matches.map((item) => {
     const firstLine = item
       .split("\n")
       .map((line) => line.trim())
       .filter(Boolean)[0];
     return toNewsletterSentence(firstLine.replace(/Top\s*\d+\s*:\s*/i, ""));
   });
+  const rest = matches.reduce((remaining, match) => remaining.replace(match, ""), text);
+
+  return normalizeNewsletterItems(dedupeSimilarItems([...topItems, ...compactBullets([rest], limit)]), limit);
 }
 
 function buildOneLine(bright: string[], next: string[]): string {
@@ -203,6 +208,65 @@ function hasFinalConsonant(char: string): boolean {
 
 function imagePrompt(prompt: string): string {
   return `${prompt} Make it look like a real professional photo, not an illustration or cartoon. Use editorial lighting, clean composition, and a realistic Seoul office or Korean education-publishing workplace atmosphere. When people are useful, show Korean or East Asian adult professionals, coworkers, presenters, or hands at work. Avoid Western stock-photo casting, children, minors, schoolchildren, elementary or middle school students, and Chinese-specific visual settings. No logos, no watermark, no readable text.`;
+}
+
+function canonicalSignalHeading(value: string): string {
+  const normalized = value.replace(/\s+/g, "");
+  if (normalized === "긍정신호") {
+    return "긍정 신호";
+  }
+  if (normalized === "약한신호") {
+    return "약한 신호";
+  }
+  if (normalized === "새로운기회") {
+    return "새로운 기회";
+  }
+  return "리스크";
+}
+
+function dedupeSimilarItems(items: string[]): string[] {
+  const kept: string[] = [];
+  const keys: string[] = [];
+
+  for (const item of items) {
+    const key = normalizeDedupeKey(item);
+    if (!key || keys.some((existing) => existing === key || isSimilarKey(existing, key))) {
+      continue;
+    }
+
+    kept.push(item);
+    keys.push(key);
+  }
+
+  return kept;
+}
+
+function normalizeDedupeKey(value: string): string {
+  return value
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/\b(Top|목표)\b/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+function isSimilarKey(left: string, right: string): boolean {
+  const leftTokens = significantTokens(left);
+  const rightTokens = significantTokens(right);
+  if (leftTokens.length < 3 || rightTokens.length < 3) {
+    return false;
+  }
+
+  const overlap = leftTokens.filter((token) => rightTokens.includes(token)).length;
+  return overlap / Math.min(leftTokens.length, rightTokens.length) >= 0.62;
+}
+
+function significantTokens(value: string): string[] {
+  return value
+    .split(/\s+/)
+    .map((token) => token.trim())
+    .filter((token) => token.length >= 2)
+    .filter((token) => !/^(및|등|관련|기준|진행|완료|검토|확인|정리|필요)$/u.test(token));
 }
 
 function formatKoreanDateTime(date: Date): string {
