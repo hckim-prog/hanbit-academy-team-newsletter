@@ -26,15 +26,21 @@ type SheetsValuesResponse = {
 
 export async function getLatestReport(): Promise<RawReport> {
   const sources = getSheetSources();
-  const reports = await Promise.all(sources.map(readLatestReportFromSource));
-  const validReports = reports.filter((report): report is RawReport => Boolean(report));
-
-  if (!validReports.length) {
-    throw new Error(`'${SOURCE_HEADER}' 아래의 날짜 보고 행을 찾지 못했습니다.`);
+  const [primarySource, ...memberSources] = sources;
+  if (!primarySource) {
+    throw new Error("뉴스레터를 만들 기본 시트 소스가 없습니다.");
   }
 
-  const primaryReport = validReports.find((report) => report.sources[0]?.name === sources[0]?.name) ?? validReports[0];
-  const memberReports = validReports.filter((report) => report !== primaryReport);
+  const primaryReport = await readLatestReportFromSource(primarySource);
+  if (!primaryReport) {
+    throw new Error(`'${primarySource.sheetName}' 시트에서 '${SOURCE_HEADER}' 아래의 날짜 보고 행을 찾지 못했습니다.`);
+  }
+
+  const memberResults = await Promise.allSettled(memberSources.map(readLatestReportFromSource));
+  const memberReports = memberResults
+    .filter((result): result is PromiseFulfilledResult<RawReport | null> => result.status === "fulfilled")
+    .map((result) => result.value)
+    .filter((report): report is RawReport => Boolean(report));
 
   return mergeReports(primaryReport, memberReports);
 }
