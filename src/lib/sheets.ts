@@ -21,12 +21,12 @@ export async function getLatestReport(): Promise<RawReport> {
       return;
     }
 
-    const reportIndex = index + 1;
-    const reportRow = rows[reportIndex];
-    if (!reportRow) {
+    const reportIndex = findNextReportRowIndex(rows, index + 1);
+    if (reportIndex === -1) {
       return;
     }
 
+    const reportRow = rows[reportIndex];
     const parsed = parseKoreanMonthDay(reportRow[0] ?? "");
     if (!parsed) {
       return;
@@ -50,6 +50,26 @@ export async function getLatestReport(): Promise<RawReport> {
 
   candidates.sort((a, b) => b.parsedTime - a.parsedTime);
   return candidates[0];
+}
+
+function findNextReportRowIndex(rows: string[][], startIndex: number): number {
+  for (let index = startIndex; index < rows.length; index += 1) {
+    const row = rows[index];
+    if (!row) {
+      continue;
+    }
+
+    const firstCell = (row[0] ?? "").trim();
+    if (index > startIndex && firstCell === SOURCE_HEADER) {
+      return -1;
+    }
+
+    if (parseKoreanMonthDay(firstCell)) {
+      return index;
+    }
+  }
+
+  return -1;
 }
 
 async function readSheetValues(): Promise<string[][]> {
