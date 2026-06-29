@@ -1,14 +1,23 @@
 import { NextResponse } from "next/server";
 import { addGeneratedImages } from "@/lib/images";
 import { buildNewsletter } from "@/lib/newsletter";
-import { getLatestReport } from "@/lib/sheets";
+import { getLatestReport, isReportSourceId } from "@/lib/sheets";
 
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
   try {
-    const body = (await request.json().catch(() => ({}))) as { images?: boolean; imageSeed?: string };
-    const report = await getLatestReport();
+    const body = (await request.json().catch(() => ({}))) as {
+      images?: boolean;
+      imageSeed?: string;
+      source?: unknown;
+    };
+    const source = body.source ?? "kim-hochul";
+    if (!isReportSourceId(source)) {
+      return NextResponse.json({ error: "선택한 업무보고 문서를 사용할 수 없습니다." }, { status: 400 });
+    }
+
+    const report = await getLatestReport(source);
     const newsletter = buildNewsletter(report);
     const withImages = body.images === false ? newsletter : await addGeneratedImages(newsletter, body.imageSeed);
 

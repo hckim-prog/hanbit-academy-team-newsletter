@@ -14,7 +14,7 @@ import {
   WandSparkles,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { GenerateNewsletterResponse, Newsletter } from "@/lib/types";
+import type { GenerateNewsletterResponse, Newsletter, ReportSourceId } from "@/lib/types";
 
 const statusTone = {
   idle: "border-white/10 bg-white/[0.04] text-zinc-300",
@@ -32,12 +32,19 @@ type GmailStatus = {
 
 type WritingStyle = "concise" | "expand" | "natural";
 
+const reportSources: Array<{ id: ReportSourceId; label: string; description: string }> = [
+  { id: "kim-hochul", label: "김호철", description: "내 문서" },
+  { id: "kim-taejin", label: "김태진", description: "팀원" },
+  { id: "son-hyejin", label: "손혜진", description: "팀원" },
+];
+
 export function NewsletterBuilder() {
   const [newsletter, setNewsletter] = useState<Newsletter | null>(null);
   const [status, setStatus] = useState("대기 중입니다.");
   const [statusKind, setStatusKind] = useState<keyof typeof statusTone>("idle");
   const [isLoading, setIsLoading] = useState(false);
   const [includeImages, setIncludeImages] = useState(true);
+  const [reportSource, setReportSource] = useState<ReportSourceId>("kim-hochul");
   const [subject, setSubject] = useState("");
   const [recipients, setRecipients] = useState("");
   const [sendConfirmed, setSendConfirmed] = useState(false);
@@ -88,7 +95,11 @@ export function NewsletterBuilder() {
       const response = await fetch("/api/newsletter", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ images: includeImages, imageSeed: createImageSeed() }),
+        body: JSON.stringify({
+          images: includeImages,
+          imageSeed: createImageSeed(),
+          source: reportSource,
+        }),
       });
       const payload = (await response.json()) as GenerateNewsletterResponse & { error?: string };
 
@@ -328,6 +339,33 @@ export function NewsletterBuilder() {
           </div>
 
           <section className="space-y-4">
+            <fieldset disabled={isLoading} className="rounded-[8px] border border-white/10 bg-white/[0.04] p-4">
+              <legend className="px-1 text-sm font-black">참조할 업무보고</legend>
+              <div className="mt-2 grid grid-cols-3 gap-2">
+                {reportSources.map((source) => (
+                  <label
+                    key={source.id}
+                    className={`cursor-pointer rounded-[8px] border px-3 py-3 text-center transition ${
+                      reportSource === source.id
+                        ? "border-[#d7ff64] bg-[#d7ff64]/10 text-[#eaff9a]"
+                        : "border-white/10 bg-white/[0.03] text-zinc-300 hover:bg-white/[0.08]"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="report-source"
+                      value={source.id}
+                      checked={reportSource === source.id}
+                      onChange={() => setReportSource(source.id)}
+                      className="sr-only"
+                    />
+                    <span className="block text-sm font-black">{source.label}</span>
+                    <span className="mt-1 block text-[10px] font-bold text-zinc-500">{source.description}</span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+
             <label className="flex items-center justify-between rounded-[8px] border border-white/10 bg-white/[0.04] p-4 text-sm font-bold">
               <span className="flex items-center gap-2">
                 <ImageIcon size={17} />

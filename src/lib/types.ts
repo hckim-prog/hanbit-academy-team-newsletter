@@ -9,6 +9,8 @@ export type RawReport = {
   next: string;
 };
 
+export type ReportSourceId = "kim-hochul" | "kim-taejin" | "son-hyejin";
+
 export type NewsletterSection = {
   id: string;
   eyebrow: string;
