@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   Copy,
   Image as ImageIcon,
+  KeyRound,
   Loader2,
   Mail,
   MailCheck,
@@ -14,7 +15,12 @@ import {
   WandSparkles,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { GenerateNewsletterResponse, Newsletter, ReportSourceId } from "@/lib/types";
+import type {
+  AiCredentials,
+  GenerateNewsletterResponse,
+  Newsletter,
+  ReportSourceId,
+} from "@/lib/types";
 
 const statusTone = {
   idle: "border-white/10 bg-white/[0.04] text-zinc-300",
@@ -44,6 +50,8 @@ export function NewsletterBuilder() {
   const [statusKind, setStatusKind] = useState<keyof typeof statusTone>("idle");
   const [isLoading, setIsLoading] = useState(false);
   const [includeImages, setIncludeImages] = useState(true);
+  const [openAiApiKey, setOpenAiApiKey] = useState("");
+  const [geminiApiKey, setGeminiApiKey] = useState("");
   const [selectedReportSources, setSelectedReportSources] = useState<ReportSourceId[]>(["kim-hochul"]);
   const [subject, setSubject] = useState("");
   const [recipients, setRecipients] = useState("");
@@ -99,6 +107,7 @@ export function NewsletterBuilder() {
           images: includeImages,
           imageSeed: createImageSeed(),
           sources: selectedReportSources,
+          credentials: getAiCredentials(),
         }),
       });
       const payload = (await response.json()) as GenerateNewsletterResponse & { error?: string };
@@ -147,7 +156,11 @@ export function NewsletterBuilder() {
       const response = await fetch("/api/polish", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ newsletter: getEditedNewsletter(), style }),
+        body: JSON.stringify({
+          newsletter: getEditedNewsletter(),
+          style,
+          credentials: getAiCredentials(),
+        }),
       });
       const payload = (await response.json()) as { newsletter?: Newsletter; error?: string };
 
@@ -180,7 +193,11 @@ export function NewsletterBuilder() {
       const response = await fetch("/api/images", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ newsletter: getEditedNewsletter(), imageSeed: createImageSeed() }),
+        body: JSON.stringify({
+          newsletter: getEditedNewsletter(),
+          imageSeed: createImageSeed(),
+          credentials: getAiCredentials(),
+        }),
       });
       const payload = (await response.json()) as { newsletter?: Newsletter; error?: string };
 
@@ -287,6 +304,13 @@ export function NewsletterBuilder() {
     return editedNewsletterRef.current ?? newsletter;
   }
 
+  function getAiCredentials(): AiCredentials {
+    return {
+      openAiApiKey: openAiApiKey.trim() || undefined,
+      geminiApiKey: geminiApiKey.trim() || undefined,
+    };
+  }
+
   const activeNewsletter = newsletter;
   const selectedSection =
     activeNewsletter?.sections.find((section) => section.id === selectedSectionId) ?? activeNewsletter?.sections[0] ?? null;
@@ -374,6 +398,35 @@ export function NewsletterBuilder() {
                   </label>
                 ))}
               </div>
+            </fieldset>
+
+            <fieldset disabled={isLoading} className="rounded-[8px] border border-white/10 bg-white/[0.04] p-4">
+              <legend className="flex items-center gap-2 px-1 text-sm font-black">
+                <KeyRound size={16} />
+                AI API 키
+              </legend>
+              <p className="mt-1 text-[11px] leading-5 text-zinc-500">
+                현재 화면에서만 사용하며 저장하지 않아요. 새로고침하면 입력값이 사라집니다.
+              </p>
+              <div className="mt-3 grid gap-3">
+                <SecretKeyField
+                  id="openai-api-key"
+                  label="OpenAI API 키"
+                  placeholder="sk-••••••••"
+                  value={openAiApiKey}
+                  onChange={setOpenAiApiKey}
+                />
+                <SecretKeyField
+                  id="gemini-api-key"
+                  label="Gemini API 키"
+                  placeholder="AIza••••••••"
+                  value={geminiApiKey}
+                  onChange={setGeminiApiKey}
+                />
+              </div>
+              <p className="mt-3 text-[10px] leading-4 text-zinc-600">
+                두 키를 입력하면 문장은 Gemini→OpenAI, 이미지는 OpenAI→Gemini 순서로 자동 전환해요.
+              </p>
             </fieldset>
 
             <label className="flex items-center justify-between rounded-[8px] border border-white/10 bg-white/[0.04] p-4 text-sm font-bold">
@@ -607,6 +660,73 @@ function splitBodyText(value: string) {
     .filter(Boolean);
 
   return lines.length ? lines : [""];
+}
+
+function SecretKeyField({
+  id,
+  label,
+  placeholder,
+  value,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  placeholder: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const input = inputRef.current;
+    if (!input) {
+      return;
+    }
+
+    const blockTransfer = (event: Event) => event.preventDefault();
+    input.addEventListener("copy", blockTransfer);
+    input.addEventListener("cut", blockTransfer);
+    input.addEventListener("contextmenu", blockTransfer);
+    input.addEventListener("dragstart", blockTransfer);
+
+    return () => {
+      input.removeEventListener("copy", blockTransfer);
+      input.removeEventListener("cut", blockTransfer);
+      input.removeEventListener("contextmenu", blockTransfer);
+      input.removeEventListener("dragstart", blockTransfer);
+    };
+  }, []);
+
+  return (
+    <label htmlFor={id} className="block">
+      <span className="mb-2 block text-[11px] font-black text-zinc-400">{label}</span>
+      <input
+        ref={inputRef}
+        id={id}
+        name={id}
+        type="password"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        onCopy={(event) => event.preventDefault()}
+        onCut={(event) => event.preventDefault()}
+        onContextMenu={(event) => event.preventDefault()}
+        onDragStart={(event) => event.preventDefault()}
+        onKeyDown={(event) => {
+          if ((event.ctrlKey || event.metaKey) && ["c", "x"].includes(event.key.toLowerCase())) {
+            event.preventDefault();
+          }
+        }}
+        autoComplete="new-password"
+        autoCapitalize="none"
+        autoCorrect="off"
+        spellCheck={false}
+        placeholder={placeholder}
+        className="field-input select-none font-mono"
+        data-1p-ignore="true"
+        data-lpignore="true"
+      />
+    </label>
+  );
 }
 
 function Field({ label, htmlFor, children }: { label: string; htmlFor: string; children: React.ReactNode }) {

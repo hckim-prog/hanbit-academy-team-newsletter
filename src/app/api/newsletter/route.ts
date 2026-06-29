@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { parseAiCredentials } from "@/lib/ai-credentials";
 import { addGeneratedImages } from "@/lib/images";
 import { buildNewsletter } from "@/lib/newsletter";
 import { polishNewsletter } from "@/lib/polish";
@@ -12,6 +13,7 @@ export async function POST(request: Request) {
     const body = (await request.json().catch(() => ({}))) as {
       images?: boolean;
       imageSeed?: string;
+      credentials?: unknown;
       source?: unknown;
       sources?: unknown;
     };
@@ -27,11 +29,15 @@ export async function POST(request: Request) {
     }
 
     const sources = [...new Set(requestedSources)] as ReportSourceId[];
+    const credentials = parseAiCredentials(body.credentials);
     const reports = await getLatestReports(sources);
     const newsletter = await polishNewsletter(buildNewsletter(reports), "expand", {
       allowRemote: process.env.OPENAI_AUTO_POLISH === "true",
+      ...credentials,
     });
-    const withImages = body.images === false ? newsletter : await addGeneratedImages(newsletter, body.imageSeed);
+    const withImages = body.images === false
+      ? newsletter
+      : await addGeneratedImages(newsletter, body.imageSeed, credentials);
 
     return NextResponse.json({
       newsletter: withImages,
