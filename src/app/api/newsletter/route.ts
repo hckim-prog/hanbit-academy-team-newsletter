@@ -28,7 +28,9 @@ export async function POST(request: Request) {
 
     const sources = [...new Set(requestedSources)] as ReportSourceId[];
     const reports = await getLatestReports(sources);
-    const newsletter = await polishNewsletter(buildNewsletter(reports), "expand");
+    const newsletter = await polishNewsletter(buildNewsletter(reports), "expand", {
+      allowRemote: process.env.OPENAI_AUTO_POLISH === "true",
+    });
     const withImages = body.images === false ? newsletter : await addGeneratedImages(newsletter, body.imageSeed);
 
     return NextResponse.json({

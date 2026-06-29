@@ -6,8 +6,12 @@ export type PolishStyle = "concise" | "expand" | "natural";
 
 let skipRemotePolishUntilRestart = false;
 
-export async function polishNewsletter(newsletter: Newsletter, style: PolishStyle = "concise"): Promise<Newsletter> {
-  if (!process.env.OPENAI_API_KEY || skipRemotePolishUntilRestart) {
+export async function polishNewsletter(
+  newsletter: Newsletter,
+  style: PolishStyle = "concise",
+  options: { allowRemote?: boolean } = {},
+): Promise<Newsletter> {
+  if (options.allowRemote === false || !process.env.OPENAI_API_KEY || skipRemotePolishUntilRestart) {
     return applyLocalPolish(newsletter);
   }
 
@@ -129,7 +133,9 @@ function isBillingLimitError(error: unknown): boolean {
   const candidate = error as { code?: unknown; error?: { code?: unknown } };
   return (
     candidate.code === "billing_hard_limit_reached" ||
-    candidate.error?.code === "billing_hard_limit_reached"
+    candidate.error?.code === "billing_hard_limit_reached" ||
+    candidate.code === "insufficient_quota" ||
+    candidate.error?.code === "insufficient_quota"
   );
 }
 
