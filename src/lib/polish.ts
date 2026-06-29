@@ -60,15 +60,27 @@ export async function polishNewsletter(
 
   const providers: Array<{
     provider: Exclude<TextAiProvider, "local">;
+    model?: string;
     run: () => Promise<string>;
   }> = [];
   const geminiApiKey = process.env.GEMINI_API_KEY;
   const openAiApiKey = process.env.OPENAI_API_KEY;
 
   if (geminiApiKey) {
-    providers.push({
-      provider: "gemini",
-      run: () => withTransientRetry(() => polishWithGemini(newsletter, style, geminiApiKey), 1),
+    const geminiModels = [...new Set([
+      process.env.GEMINI_TEXT_MODEL ?? "gemini-3.5-flash",
+      "gemini-2.5-pro",
+      "gemini-2.5-flash",
+    ])];
+    geminiModels.forEach((model, modelIndex) => {
+      providers.push({
+        provider: "gemini",
+        model,
+        run: () => withTransientRetry(
+          () => polishWithGemini(newsletter, style, geminiApiKey, model),
+          modelIndex === 0 ? 1 : 0,
+        ),
+      });
     });
   }
   if (openAiApiKey && !skipOpenAiPolishUntilRestart) {
@@ -98,7 +110,7 @@ export async function polishNewsletter(
         skipOpenAiPolishUntilRestart = true;
       }
       warnings.push(`${providerLabel(candidate.provider)} 연결이 원활하지 않아 다음 문장 엔진을 사용했어요.`);
-      console.warn(`${candidate.provider} polish fallback`, safeAiError(error));
+      console.warn(`${candidate.provider} polish fallback`, { model: candidate.model, ...safeAiError(error) });
     }
   }
 
@@ -128,10 +140,15 @@ async function polishWithOpenAi(newsletter: Newsletter, style: PolishStyle, apiK
   return text;
 }
 
-async function polishWithGemini(newsletter: Newsletter, style: PolishStyle, apiKey: string) {
+async function polishWithGemini(
+  newsletter: Newsletter,
+  style: PolishStyle,
+  apiKey: string,
+  model: string,
+) {
   const gemini = new GoogleGenAI({ apiKey, httpOptions: { timeout: 15_000 } });
   const response = await gemini.models.generateContent({
-    model: process.env.GEMINI_TEXT_MODEL ?? "gemini-3.5-flash",
+    model,
     contents: polishRequest(newsletter, style),
     config: {
       systemInstruction: systemInstruction(style),
