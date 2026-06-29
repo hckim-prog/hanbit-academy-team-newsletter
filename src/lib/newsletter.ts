@@ -3,14 +3,43 @@ import { normalizeNewsletterItems, normalizeNewsletterSentence } from "./korean-
 
 const TEAM_NAME = "디지털콘텐츠전환TF";
 
-export function buildNewsletter(report: RawReport): Newsletter {
-  const displayMonth = toDisplayMonth(report.displayDate);
-  const signals = parseSignalSections(report.signals);
-  const bright = compactBullets([signals["긍정 신호"], signals["새로운 기회"]], 4);
-  const focus = compactBullets([report.operations], 4);
-  const watching = compactBullets([signals["약한 신호"], signals["리스크"], report.operations], 4);
-  const next = extractTopItems(report.next);
-  const request = compactBullets([report.support, report.request], 3);
+export function buildNewsletter(input: RawReport | RawReport[]): Newsletter {
+  const reports = Array.isArray(input) ? input : [input];
+  if (!reports.length) {
+    throw new Error("뉴스레터로 만들 업무보고가 없습니다.");
+  }
+
+  const latestReport = [...reports].sort((a, b) => b.parsedTime - a.parsedTime)[0];
+  const displayMonth = toDisplayMonth(latestReport.displayDate);
+  const itemLimit = reports.length === 1 ? 4 : reports.length === 2 ? 6 : 8;
+  const signalGroups = reports.map((report) => parseSignalSections(report.signals));
+  const bright = roundRobinItems(
+    reports.map((_, index) =>
+      compactBullets([signalGroups[index]["긍정 신호"], signalGroups[index]["새로운 기회"]], 4),
+    ),
+    itemLimit,
+  );
+  const focus = roundRobinItems(
+    reports.map((report) => compactBullets([report.operations], 4)),
+    itemLimit,
+  );
+  const watching = roundRobinItems(
+    reports.map((report, index) =>
+      compactBullets(
+        [signalGroups[index]["약한 신호"], signalGroups[index]["리스크"], report.operations],
+        4,
+      ),
+    ),
+    itemLimit,
+  );
+  const next = roundRobinItems(
+    reports.map((report) => extractTopItems(report.next)),
+    Math.min(itemLimit, 6),
+  );
+  const request = roundRobinItems(
+    reports.map((report) => compactBullets([report.support, report.request], 3)),
+    Math.min(itemLimit, 6),
+  );
 
   const sections: NewsletterSection[] = [
     {
@@ -78,9 +107,9 @@ export function buildNewsletter(report: RawReport): Newsletter {
   return {
     subject: `[${TEAM_NAME}] ${displayMonth} 격주 뉴스레터`,
     teamName: TEAM_NAME,
-    sourceDate: report.displayDate,
+    sourceDate: latestReport.displayDate,
     displayMonth,
-    sourceRange: report.sourceRange,
+    sourceRange: reports.map((report) => report.sourceRange).join(" | "),
     generatedAt: formatKoreanDateTime(new Date()),
     heroTitle: "디콘전TF 소식이 도착했어요",
     heroSubtitle: `${displayMonth} 소식을 정리한 ${TEAM_NAME} 격주 뉴스레터입니다.`,
@@ -90,6 +119,28 @@ export function buildNewsletter(report: RawReport): Newsletter {
     sections,
     closing: "다음 소식도 가볍게 읽히지만 알맹이는 또렷하게 정리해 올게요.",
   };
+}
+
+function roundRobinItems(groups: string[][], limit: number): string[] {
+  const combined: string[] = [];
+  const seen = new Set<string>();
+  const maxGroupLength = Math.max(0, ...groups.map((group) => group.length));
+
+  for (let itemIndex = 0; itemIndex < maxGroupLength && combined.length < limit; itemIndex += 1) {
+    for (const group of groups) {
+      const item = group[itemIndex];
+      if (!item || seen.has(item)) {
+        continue;
+      }
+      seen.add(item);
+      combined.push(item);
+      if (combined.length >= limit) {
+        break;
+      }
+    }
+  }
+
+  return combined;
 }
 
 function toDisplayMonth(value: string): string {
@@ -146,13 +197,9 @@ function extractTopItems(text: string): string[] {
 }
 
 function buildOneLine(bright: string[], next: string[]): string {
-  if (bright.length) {
-    const topic = extractTopic(bright[0]);
-    return `이번 호는 ${topic}${objectParticle(topic)} 중심으로 전해드려요.`;
-  }
-  if (next.length) {
-    const topic = extractTopic(next[0]);
-    return `이번 호는 ${topic}${objectParticle(topic)} 중심으로 전해드려요.`;
+  const lead = bright[0] ?? next[0];
+  if (lead) {
+    return `이번 호에서 먼저 전해드릴 소식이에요. ${lead}`;
   }
   return `${TEAM_NAME}의 최근 2주 진행 상황을 보기 좋게 정리했어요.`;
 }
@@ -165,40 +212,6 @@ function toNewsletterSentence(text: string): string {
   sentence = sentence.replace(/예정\.?$/g, "예정이에요.");
 
   return normalizeNewsletterSentence(sentence);
-}
-
-function trimEndMark(text: string): string {
-  return text.replace(/[.!?。]$/, "");
-}
-
-function extractTopic(text: string): string {
-  const sentence = trimEndMark(text).replace(/\s+/g, " ").trim();
-  const subject = sentence.match(/^(.{3,35}?)(?:은|는)\s/);
-  if (subject) {
-    return subject[1].trim();
-  }
-
-  return sentence
-    .replace(/(?:했어요|됐어요|있어요|없어요|이에요|예요)$/g, "")
-    .replace(/\s*(?:소식|건|작업|과제)$/g, (match) => match.trim())
-    .trim()
-    .slice(0, 36);
-}
-
-function objectParticle(text: string): string {
-  return hasFinalConsonant(text.at(-1) ?? "") ? "을" : "를";
-}
-
-function hasFinalConsonant(char: string): boolean {
-  const code = char.charCodeAt(0);
-  const hangulStart = 0xac00;
-  const hangulEnd = 0xd7a3;
-
-  if (code < hangulStart || code > hangulEnd) {
-    return false;
-  }
-
-  return (code - hangulStart) % 28 !== 0;
 }
 
 function imagePrompt(prompt: string): string {
