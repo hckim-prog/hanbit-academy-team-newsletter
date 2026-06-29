@@ -1,14 +1,13 @@
 import { GoogleGenAI } from "@google/genai";
 import OpenAI from "openai";
-import type { AiCredentials, Newsletter } from "./types";
+import type { Newsletter } from "./types";
 
 export async function addGeneratedImages(
   newsletter: Newsletter,
   imageSeed = String(Date.now()),
-  credentials: AiCredentials = {},
 ): Promise<Newsletter> {
-  const openAiApiKey = credentials.openAiApiKey ?? process.env.OPENAI_API_KEY;
-  const geminiApiKey = credentials.geminiApiKey ?? process.env.GEMINI_API_KEY;
+  const openAiApiKey = process.env.OPENAI_API_KEY;
+  const geminiApiKey = process.env.GEMINI_API_KEY;
   if (!openAiApiKey && !geminiApiKey) {
     return addFallbackPhotos(newsletter, imageSeed);
   }
