@@ -1,15 +1,25 @@
+import "server-only";
+
 import { GoogleGenAI } from "@google/genai";
 import OpenAI from "openai";
-import type { Newsletter } from "./types";
+import type { ImageAiStatus, Newsletter } from "./types";
+
+export type ImageResult = {
+  newsletter: Newsletter;
+  status: ImageAiStatus;
+  warnings: string[];
+};
+
+let skipOpenAiImagesUntilRestart = false;
 
 export async function addGeneratedImages(
   newsletter: Newsletter,
   imageSeed = String(Date.now()),
-): Promise<Newsletter> {
+): Promise<ImageResult> {
   const openAiApiKey = process.env.OPENAI_API_KEY;
   const geminiApiKey = process.env.GEMINI_API_KEY;
   if (!openAiApiKey && !geminiApiKey) {
-    return addFallbackPhotos(newsletter, imageSeed);
+    return fallbackImageResult(newsletter, imageSeed, false, []);
   }
 
   const imageCount = resolveImageCount(newsletter);
@@ -27,27 +37,27 @@ export async function addGeneratedImages(
     name: "OpenAI" | "Gemini";
     generate: (prompt: string, index: number) => Promise<string>;
   }> = [];
-  if (openAiApiKey) {
+  if (geminiApiKey) {
+    providers.push({
+      name: "Gemini",
+      generate: (prompt) => withTransientRetry(() => generateGeminiImage(prompt, geminiApiKey), 1),
+    });
+  }
+  if (openAiApiKey && !skipOpenAiImagesUntilRestart) {
     providers.push({
       name: "OpenAI",
       generate: (prompt, index) => generateOpenAiImage(prompt, index, openAiApiKey),
     });
   }
-  if (geminiApiKey) {
-    providers.push({
-      name: "Gemini",
-      generate: (prompt) => generateGeminiImage(prompt, geminiApiKey),
-    });
-  }
 
-  for (const provider of providers) {
+  const warnings: string[] = [];
+  for (let providerIndex = 0; providerIndex < providers.length; providerIndex += 1) {
+    const provider = providers[providerIndex];
     try {
-      const generated = await Promise.all(
-        targets.map(async (target, index) => ({
+      const generated = await mapWithConcurrency(targets, 2, async (target, index) => ({
           ...target,
           url: await provider.generate(diversifyPrompt(target.prompt, imageSeed, index), index),
-        })),
-      );
+        }));
 
       const hero = generated.find((item) => item.kind === "hero");
       const sections = newsletter.sections.map((section) => {
@@ -56,16 +66,75 @@ export async function addGeneratedImages(
       });
 
       return {
-        ...newsletter,
-        heroImageUrl: hero?.url,
-        sections,
+        newsletter: { ...newsletter, heroImageUrl: hero?.url, sections },
+        status: {
+          provider: provider.name === "Gemini" ? "gemini" : "openai",
+          fallbackUsed: providerIndex > 0,
+        },
+        warnings,
       };
     } catch (error) {
-      console.error(`${provider.name} image generation failed; trying the next fallback.`, safeAiError(error));
+      if (provider.name === "OpenAI" && isBillingLimitError(error)) {
+        skipOpenAiImagesUntilRestart = true;
+      }
+      warnings.push(`${provider.name} 이미지 생성이 원활하지 않아 다음 이미지 방식을 사용했어요.`);
+      console.warn(`${provider.name} image fallback`, safeAiError(error));
     }
   }
 
-  return addFallbackPhotos(newsletter, imageSeed);
+  return fallbackImageResult(newsletter, imageSeed, providers.length > 0, warnings);
+}
+
+function fallbackImageResult(
+  newsletter: Newsletter,
+  imageSeed: string,
+  fallbackUsed: boolean,
+  warnings: string[],
+): ImageResult {
+  return {
+    newsletter: addFallbackPhotos(newsletter, imageSeed),
+    status: { provider: "curated", fallbackUsed },
+    warnings,
+  };
+}
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  worker: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let cursor = 0;
+  async function consume() {
+    while (cursor < items.length) {
+      const index = cursor++;
+      results[index] = await worker(items[index], index);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, consume));
+  return results;
+}
+
+async function withTransientRetry<T>(run: () => Promise<T>, retries: number): Promise<T> {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return await run();
+    } catch (error) {
+      if (attempt >= retries || !isTransientError(error)) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 650 * (attempt + 1)));
+    }
+  }
+}
+
+function isTransientError(error: unknown) {
+  const status = safeAiError(error).status;
+  return status === 429 || status === 500 || status === 502 || status === 503 || status === 504;
+}
+
+function isBillingLimitError(error: unknown) {
+  if (!error || typeof error !== "object") return false;
+  const candidate = error as { code?: unknown; error?: { code?: unknown } };
+  return ["billing_hard_limit_reached", "insufficient_quota"].includes(String(candidate.code ?? candidate.error?.code));
 }
 
 function resolveImageCount(newsletter: Newsletter): number {
@@ -99,7 +168,7 @@ Make this image visually distinct from the other newsletter images in subject di
 }
 
 async function generateOpenAiImage(prompt: string, index: number, apiKey: string): Promise<string> {
-  const openai = new OpenAI({ apiKey, maxRetries: 0 });
+  const openai = new OpenAI({ apiKey, maxRetries: 0, timeout: 60_000 });
   const mode = process.env.OPENAI_IMAGE_MODE ?? "image_api";
 
   if (mode === "image_api") {
@@ -134,7 +203,7 @@ async function generateOpenAiImage(prompt: string, index: number, apiKey: string
 }
 
 async function generateGeminiImage(prompt: string, apiKey: string): Promise<string> {
-  const gemini = new GoogleGenAI({ apiKey });
+  const gemini = new GoogleGenAI({ apiKey, httpOptions: { timeout: 60_000 } });
   const response = await gemini.models.generateContent({
     model: process.env.GEMINI_IMAGE_MODEL ?? "gemini-3.1-flash-image",
     contents: prompt,

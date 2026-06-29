@@ -36,7 +36,27 @@ export type Newsletter = {
   closing: string;
 };
 
+export type TextAiProvider = "gemini" | "openai" | "local";
+export type ImageAiProvider = "gemini" | "openai" | "curated";
+
+export type TextAiStatus = {
+  provider: TextAiProvider;
+  changed: boolean;
+  fallbackUsed: boolean;
+};
+
+export type ImageAiStatus = {
+  provider: ImageAiProvider;
+  fallbackUsed: boolean;
+};
+
+export type NewsletterAiStatus = {
+  text?: TextAiStatus;
+  image?: ImageAiStatus;
+};
+
 export type GenerateNewsletterResponse = {
   newsletter: Newsletter;
   warnings: string[];
+  aiStatus: NewsletterAiStatus;
 };

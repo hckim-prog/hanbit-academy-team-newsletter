@@ -51,7 +51,9 @@ GOOGLE_SERVICE_ACCOUNT_EMAIL=...
 GOOGLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
 
 # 선택 설정
-OPENAI_TEXT_MODEL=gpt-4.1-mini
+GEMINI_API_KEY=...
+GEMINI_TEXT_MODEL=gemini-3.5-flash
+OPENAI_TEXT_MODEL=gpt-5.5
 OPENAI_AUTO_POLISH=false
 NEWSLETTER_IMAGE_COUNT=7
 
@@ -70,9 +72,9 @@ ACADEMY_NEWSLETTER_RECIPIENTS=member1@example.com,member2@example.com
 
 `NEWSLETTER_IMAGE_COUNT`를 비워두면 히어로와 모든 섹션에 이미지를 붙입니다. 값을 지정하면 최대 이미지 수를 제한합니다.
 
-`OPENAI_AUTO_POLISH=true`로 설정하면 생성 단계에서 OpenAI 한국어 다듬기를 추가로 적용합니다. 기본값은 `false`이며, 기본 한국어 문장 보정은 OpenAI 호출 없이 항상 적용됩니다.
+`OPENAI_AUTO_POLISH=true`로 설정하면 생성 단계에서 Gemini를 우선 사용하고 OpenAI, 로컬 교정 순서로 한국어 본문을 다듬습니다. 각 결과는 섹션·항목 순서와 날짜·숫자 보존 검사를 통과해야 적용됩니다. 기본값은 `false`이며, 이때도 로컬 한국어 문장 보정은 적용됩니다.
 
-OpenAI 이미지 생성이 billing hard limit, quota, model access 문제로 실패하면 앱은 뉴스레터가 깨지지 않도록 본문 키워드 기반의 실사진을 자동으로 표시합니다. fallback 사진은 세미나, 교재/출판, AI/데이터, 영업, 검수, 협업, 일정/로드맵 등 여러 주제 후보를 섞어 고릅니다. 결제 한도 또는 모델 접근 권한이 정상화되면 같은 버튼으로 AI 생성 실사진 스타일 이미지가 들어갑니다.
+이미지는 Gemini, OpenAI 순서로 생성합니다. billing hard limit, quota, model access 문제로 모두 실패하면 뉴스레터가 깨지지 않도록 본문 키워드 기반의 기본 사진을 자동으로 표시합니다. 화면의 `AI 사용 상태`에서 실제 사용된 문장·이미지 엔진을 확인할 수 있습니다.
 
 Google Sheet가 비공개라면 서비스 계정을 만들고 원본 스프레드시트에 해당 서비스 계정 이메일을 보기 권한으로 공유하세요.
 

@@ -28,16 +28,20 @@ export async function POST(request: Request) {
 
     const sources = [...new Set(requestedSources)] as ReportSourceId[];
     const reports = await getLatestReports(sources);
-    const newsletter = await polishNewsletter(buildNewsletter(reports), "expand", {
+    const polishResult = await polishNewsletter(buildNewsletter(reports), "expand", {
       allowRemote: process.env.OPENAI_AUTO_POLISH === "true",
     });
-    const withImages = body.images === false
-      ? newsletter
-      : await addGeneratedImages(newsletter, body.imageSeed);
+    const imageResult = body.images === false
+      ? null
+      : await addGeneratedImages(polishResult.newsletter, body.imageSeed);
 
     return NextResponse.json({
-      newsletter: withImages,
-      warnings: [],
+      newsletter: imageResult?.newsletter ?? polishResult.newsletter,
+      warnings: [...polishResult.warnings, ...(imageResult?.warnings ?? [])],
+      aiStatus: {
+        text: polishResult.status,
+        image: imageResult?.status,
+      },
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "뉴스레터 생성 중 오류가 발생했습니다.";

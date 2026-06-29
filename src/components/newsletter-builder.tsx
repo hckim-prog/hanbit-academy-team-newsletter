@@ -14,7 +14,12 @@ import {
   WandSparkles,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { GenerateNewsletterResponse, Newsletter, ReportSourceId } from "@/lib/types";
+import type {
+  GenerateNewsletterResponse,
+  Newsletter,
+  NewsletterAiStatus,
+  ReportSourceId,
+} from "@/lib/types";
 
 const statusTone = {
   idle: "border-white/10 bg-white/[0.04] text-zinc-300",
@@ -51,6 +56,7 @@ export function NewsletterBuilder() {
   const [gmailStatus, setGmailStatus] = useState<GmailStatus | null>(null);
   const [emailPreviewHtml, setEmailPreviewHtml] = useState("");
   const [selectedSectionId, setSelectedSectionId] = useState("");
+  const [aiStatus, setAiStatus] = useState<NewsletterAiStatus>({});
   const editedNewsletterRef = useRef<Newsletter | null>(null);
 
   function setUiStatus(message: string, kind: keyof typeof statusTone = "idle") {
@@ -108,11 +114,15 @@ export function NewsletterBuilder() {
       }
 
       setNewsletter(payload.newsletter);
+      setAiStatus(payload.aiStatus);
       editedNewsletterRef.current = payload.newsletter;
       setSelectedSectionId(payload.newsletter.sections[0]?.id ?? "");
       setSubject(payload.newsletter.subject);
       window.setTimeout(updateEmailPreview, 50);
-      setUiStatus("초안을 만들었습니다. 가운데 발송본 미리보기에서 실제 Gmail 형태를 확인해 주세요.", "done");
+      setUiStatus(
+        `초안을 만들었습니다. ${formatAiStatus(payload.aiStatus)} 가운데 발송본 미리보기를 확인해 주세요.`,
+        "done",
+      );
     } catch (error) {
       setUiStatus(error instanceof Error ? error.message : "오류가 발생했습니다.", "error");
     } finally {
@@ -152,7 +162,12 @@ export function NewsletterBuilder() {
           style,
         }),
       });
-      const payload = (await response.json()) as { newsletter?: Newsletter; error?: string };
+      const payload = (await response.json()) as {
+        newsletter?: Newsletter;
+        aiStatus?: NewsletterAiStatus;
+        warnings?: string[];
+        error?: string;
+      };
 
       if (!response.ok || payload.error || !payload.newsletter) {
         throw new Error(payload.error ?? "문장체 다듬기에 실패했습니다.");
@@ -160,10 +175,17 @@ export function NewsletterBuilder() {
 
       const nextNewsletter = payload.newsletter;
       setNewsletter(nextNewsletter);
+      setAiStatus((current) => ({ ...current, text: payload.aiStatus?.text }));
       editedNewsletterRef.current = nextNewsletter;
       setSelectedSectionId((current) => keepSelectedSection(current, nextNewsletter));
       window.setTimeout(updateEmailPreview, 50);
-      setUiStatus(`전체 문장을 ${styleLabels[style]} 적용했습니다.`, "done");
+      const textStatus = payload.aiStatus?.text;
+      setUiStatus(
+        textStatus?.changed === false
+          ? `${providerLabel(textStatus.provider)} 엔진으로 확인했지만 변경할 문장이 없었습니다.`
+          : `전체 문장을 ${styleLabels[style]} 적용했습니다. 문장 · ${textStatus ? providerLabel(textStatus.provider) : "확인 불가"}`,
+        "done",
+      );
     } catch (error) {
       setUiStatus(error instanceof Error ? error.message : "문장체 다듬기 중 오류가 발생했습니다.", "error");
     } finally {
@@ -188,7 +210,12 @@ export function NewsletterBuilder() {
           imageSeed: createImageSeed(),
         }),
       });
-      const payload = (await response.json()) as { newsletter?: Newsletter; error?: string };
+      const payload = (await response.json()) as {
+        newsletter?: Newsletter;
+        aiStatus?: NewsletterAiStatus;
+        warnings?: string[];
+        error?: string;
+      };
 
       if (!response.ok || payload.error || !payload.newsletter) {
         throw new Error(payload.error ?? "이미지 새로고침에 실패했습니다.");
@@ -196,10 +223,14 @@ export function NewsletterBuilder() {
 
       const nextNewsletter = payload.newsletter;
       setNewsletter(nextNewsletter);
+      setAiStatus((current) => ({ ...current, image: payload.aiStatus?.image }));
       editedNewsletterRef.current = nextNewsletter;
       setSelectedSectionId((current) => keepSelectedSection(current, nextNewsletter));
       window.setTimeout(updateEmailPreview, 50);
-      setUiStatus("이미지를 새 조합으로 바꿨습니다.", "done");
+      setUiStatus(
+        `이미지를 새 조합으로 바꿨습니다. 이미지 · ${payload.aiStatus?.image ? providerLabel(payload.aiStatus.image.provider) : "확인 불가"}`,
+        "done",
+      );
     } catch (error) {
       setUiStatus(error instanceof Error ? error.message : "이미지 새로고침 중 오류가 발생했습니다.", "error");
     } finally {
@@ -496,6 +527,20 @@ export function NewsletterBuilder() {
               </div>
             </div>
             <div className="rounded-[8px] border border-white/10 bg-white/[0.04] p-3">
+              <p className="mb-2 text-xs font-black uppercase tracking-[0.16em] text-zinc-500">AI 사용 상태</p>
+              <div className="flex flex-wrap gap-2 text-[11px] font-black">
+                <span className="rounded-full bg-white/[0.08] px-2.5 py-1 text-zinc-200">
+                  문장 · {aiStatus.text ? providerLabel(aiStatus.text.provider) : "생성 후 표시"}
+                </span>
+                <span className="rounded-full bg-white/[0.08] px-2.5 py-1 text-zinc-200">
+                  이미지 · {aiStatus.image ? providerLabel(aiStatus.image.provider) : includeImages ? "생성 후 표시" : "사용 안 함"}
+                </span>
+              </div>
+              {aiStatus.text?.fallbackUsed || aiStatus.image?.fallbackUsed ? (
+                <p className="mt-2 text-[11px] leading-5 text-[#eaff9a]">연결 상태에 따라 예비 처리 방식이 사용됐어요.</p>
+              ) : null}
+            </div>
+            <div className="rounded-[8px] border border-white/10 bg-white/[0.04] p-3">
               <p className="mb-3 text-xs font-black uppercase tracking-[0.16em] text-zinc-500">내용 수정</p>
               {selectedSection ? (
                 <div className="grid gap-3">
@@ -600,6 +645,21 @@ export function NewsletterBuilder() {
 
 function createImageSeed() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function providerLabel(provider: "gemini" | "openai" | "local" | "curated") {
+  if (provider === "gemini") return "Gemini";
+  if (provider === "openai") return "OpenAI";
+  if (provider === "curated") return "기본 사진";
+  return "로컬 교정";
+}
+
+function formatAiStatus(status: NewsletterAiStatus) {
+  const parts = [
+    status.text ? `문장 · ${providerLabel(status.text.provider)}` : null,
+    status.image ? `이미지 · ${providerLabel(status.image.provider)}` : null,
+  ].filter(Boolean);
+  return parts.length ? `${parts.join(" / ")}.` : "";
 }
 
 function keepSelectedSection(current: string, newsletter: Newsletter) {
