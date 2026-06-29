@@ -11,11 +11,6 @@ export type RawReport = {
 
 export type ReportSourceId = "kim-hochul" | "kim-taejin" | "son-hyejin";
 
-export type AiCredentials = {
-  openAiApiKey?: string;
-  geminiApiKey?: string;
-};
-
 export type NewsletterSection = {
   id: string;
   eyebrow: string;

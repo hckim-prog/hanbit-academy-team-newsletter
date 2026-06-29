@@ -1,6 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import OpenAI from "openai";
-import type { AiCredentials, Newsletter } from "./types";
+import type { Newsletter } from "./types";
 import { normalizeNewsletterItems, normalizeNewsletterSentence } from "./korean-style";
 
 export type PolishStyle = "concise" | "expand" | "natural";
@@ -31,20 +31,19 @@ const polishSchema = {
   required: ["heroTitle", "sections", "closing"],
 } as const;
 
-type PolishOptions = AiCredentials & { allowRemote?: boolean };
+type PolishOptions = { allowRemote?: boolean };
 
 export async function polishNewsletter(
   newsletter: Newsletter,
   style: PolishStyle = "concise",
   options: PolishOptions = {},
 ): Promise<Newsletter> {
-  const userProvidedCredentials = Boolean(options.openAiApiKey || options.geminiApiKey);
-  if (options.allowRemote === false && !userProvidedCredentials) {
+  if (options.allowRemote === false) {
     return applyLocalPolish(newsletter);
   }
 
-  const geminiApiKey = options.geminiApiKey ?? process.env.GEMINI_API_KEY;
-  const openAiApiKey = options.openAiApiKey ?? process.env.OPENAI_API_KEY;
+  const geminiApiKey = process.env.GEMINI_API_KEY;
+  const openAiApiKey = process.env.OPENAI_API_KEY;
   const providers: Array<{ name: "Gemini" | "OpenAI"; run: () => Promise<string> }> = [];
 
   if (geminiApiKey) {
@@ -53,7 +52,7 @@ export async function polishNewsletter(
       run: () => polishWithGemini(newsletter, style, geminiApiKey),
     });
   }
-  if (openAiApiKey && (!skipRemotePolishUntilRestart || options.openAiApiKey)) {
+  if (openAiApiKey && !skipRemotePolishUntilRestart) {
     providers.push({
       name: "OpenAI",
       run: () => polishWithOpenAi(newsletter, style, openAiApiKey),
@@ -64,7 +63,7 @@ export async function polishNewsletter(
     try {
       return mergePolishResult(newsletter, await provider.run());
     } catch (error) {
-      if (provider.name === "OpenAI" && !options.openAiApiKey && isBillingLimitError(error)) {
+      if (provider.name === "OpenAI" && isBillingLimitError(error)) {
         skipRemotePolishUntilRestart = true;
       }
       console.error(`${provider.name} polish failed; trying the next fallback.`, safeAiError(error));
