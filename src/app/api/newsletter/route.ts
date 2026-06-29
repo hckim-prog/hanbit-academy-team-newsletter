@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { addGeneratedImages } from "@/lib/images";
 import { buildNewsletter } from "@/lib/newsletter";
-import { getLatestReport, isReportSourceId } from "@/lib/sheets";
+import { polishNewsletter } from "@/lib/polish";
+import { getLatestReports, isReportSourceId } from "@/lib/sheets";
+import type { ReportSourceId } from "@/lib/types";
 
 export const runtime = "nodejs";
 
@@ -11,14 +13,22 @@ export async function POST(request: Request) {
       images?: boolean;
       imageSeed?: string;
       source?: unknown;
+      sources?: unknown;
     };
-    const source = body.source ?? "kim-hochul";
-    if (!isReportSourceId(source)) {
+    const requestedSources = Array.isArray(body.sources)
+      ? body.sources
+      : [body.source ?? "kim-hochul"];
+    if (
+      requestedSources.length < 1 ||
+      requestedSources.length > 3 ||
+      !requestedSources.every(isReportSourceId)
+    ) {
       return NextResponse.json({ error: "선택한 업무보고 문서를 사용할 수 없습니다." }, { status: 400 });
     }
 
-    const report = await getLatestReport(source);
-    const newsletter = buildNewsletter(report);
+    const sources = [...new Set(requestedSources)] as ReportSourceId[];
+    const reports = await getLatestReports(sources);
+    const newsletter = await polishNewsletter(buildNewsletter(reports), "expand");
     const withImages = body.images === false ? newsletter : await addGeneratedImages(newsletter, body.imageSeed);
 
     return NextResponse.json({

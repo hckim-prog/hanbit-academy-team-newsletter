@@ -32,7 +32,7 @@ type GmailStatus = {
 
 type WritingStyle = "concise" | "expand" | "natural";
 
-const reportSources: Array<{ id: ReportSourceId; label: string; description: string }> = [
+const reportSourceOptions: Array<{ id: ReportSourceId; label: string; description: string }> = [
   { id: "kim-hochul", label: "김호철", description: "내 문서" },
   { id: "kim-taejin", label: "김태진", description: "팀원" },
   { id: "son-hyejin", label: "손혜진", description: "팀원" },
@@ -44,7 +44,7 @@ export function NewsletterBuilder() {
   const [statusKind, setStatusKind] = useState<keyof typeof statusTone>("idle");
   const [isLoading, setIsLoading] = useState(false);
   const [includeImages, setIncludeImages] = useState(true);
-  const [reportSource, setReportSource] = useState<ReportSourceId>("kim-hochul");
+  const [selectedReportSources, setSelectedReportSources] = useState<ReportSourceId[]>(["kim-hochul"]);
   const [subject, setSubject] = useState("");
   const [recipients, setRecipients] = useState("");
   const [sendConfirmed, setSendConfirmed] = useState(false);
@@ -98,7 +98,7 @@ export function NewsletterBuilder() {
         body: JSON.stringify({
           images: includeImages,
           imageSeed: createImageSeed(),
-          source: reportSource,
+          sources: selectedReportSources,
         }),
       });
       const payload = (await response.json()) as GenerateNewsletterResponse & { error?: string };
@@ -118,6 +118,15 @@ export function NewsletterBuilder() {
     } finally {
       setIsLoading(false);
     }
+  }
+
+  function toggleReportSource(sourceId: ReportSourceId) {
+    setSelectedReportSources((current) => {
+      if (!current.includes(sourceId)) {
+        return [...current, sourceId];
+      }
+      return current.length === 1 ? current : current.filter((id) => id !== sourceId);
+    });
   }
 
   async function polishWriting(style: WritingStyle) {
@@ -341,22 +350,23 @@ export function NewsletterBuilder() {
           <section className="space-y-4">
             <fieldset disabled={isLoading} className="rounded-[8px] border border-white/10 bg-white/[0.04] p-4">
               <legend className="px-1 text-sm font-black">참조할 업무보고</legend>
+              <p className="mt-1 text-[11px] leading-5 text-zinc-500">한 명 이상 선택해 내용을 함께 구성할 수 있어요.</p>
               <div className="mt-2 grid grid-cols-3 gap-2">
-                {reportSources.map((source) => (
+                {reportSourceOptions.map((source) => (
                   <label
                     key={source.id}
                     className={`cursor-pointer rounded-[8px] border px-3 py-3 text-center transition ${
-                      reportSource === source.id
+                      selectedReportSources.includes(source.id)
                         ? "border-[#d7ff64] bg-[#d7ff64]/10 text-[#eaff9a]"
                         : "border-white/10 bg-white/[0.03] text-zinc-300 hover:bg-white/[0.08]"
                     }`}
                   >
                     <input
-                      type="radio"
+                      type="checkbox"
                       name="report-source"
                       value={source.id}
-                      checked={reportSource === source.id}
-                      onChange={() => setReportSource(source.id)}
+                      checked={selectedReportSources.includes(source.id)}
+                      onChange={() => toggleReportSource(source.id)}
                       className="sr-only"
                     />
                     <span className="block text-sm font-black">{source.label}</span>

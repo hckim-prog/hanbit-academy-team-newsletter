@@ -1,5 +1,6 @@
 import { JWT } from "google-auth-library";
 import type { RawReport, ReportSourceId } from "./types";
+import { stripSourceListNumbering } from "./korean-style";
 
 const SOURCE_HEADER = "주간업무보고(2주간격)";
 
@@ -43,8 +44,19 @@ export function isReportSourceId(value: unknown): value is ReportSourceId {
 }
 
 export async function getLatestReport(sourceId: ReportSourceId = "kim-hochul"): Promise<RawReport> {
-  const source = REPORT_SOURCES[sourceId];
+  return (await getLatestReports([sourceId]))[0];
+}
+
+export async function getLatestReports(sourceIds: ReportSourceId[]): Promise<RawReport[]> {
   const authorization = await getSheetsAuthorization();
+  return Promise.all(sourceIds.map((sourceId) => getLatestReportFromSource(sourceId, authorization)));
+}
+
+async function getLatestReportFromSource(
+  sourceId: ReportSourceId,
+  authorization: SheetsAuthorization,
+): Promise<RawReport> {
+  const source = REPORT_SOURCES[sourceId];
   const sheetName = await resolveSheetName(source.spreadsheetId, source.sheetId, authorization);
   const rows = await readSheetValues(source.spreadsheetId, sheetName, authorization);
   const candidates: RawReport[] = [];
@@ -69,11 +81,11 @@ export async function getLatestReport(sourceId: ReportSourceId = "kim-hochul"): 
       displayDate: reportRow[0] ?? "",
       parsedTime: parsed.getTime(),
       sourceRange: `${sheetName}!A${reportIndex + 1}:F${reportIndex + 1}`,
-      signals: reportRow[1] ?? "",
-      operations: reportRow[2] ?? "",
-      support: reportRow[3] ?? "",
-      request: reportRow[4] ?? "",
-      next: reportRow[5] ?? "",
+      signals: stripSourceListNumbering(reportRow[1] ?? ""),
+      operations: stripSourceListNumbering(reportRow[2] ?? ""),
+      support: stripSourceListNumbering(reportRow[3] ?? ""),
+      request: stripSourceListNumbering(reportRow[4] ?? ""),
+      next: stripSourceListNumbering(reportRow[5] ?? ""),
     });
   });
 

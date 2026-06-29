@@ -6,10 +6,33 @@ export function normalizeNewsletterItems(items: string[], maxItems = 5): string[
     .slice(0, maxItems);
 }
 
+export function stripSourceListNumbering(text: string): string {
+  return text
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .map((line) => {
+      let cleaned = line;
+      for (let index = 0; index < 3; index += 1) {
+        const next = cleaned.replace(
+          /^(\s*(?:[-•▪◦‣ㄴ]\s*)?)(?:(?:\(?\d{1,3}\)?[.)])|[①-⑳])\s*/u,
+          "$1",
+        );
+        if (next === cleaned) {
+          break;
+        }
+        cleaned = next;
+      }
+      return cleaned;
+    })
+    .join("\n");
+}
+
 export function normalizeNewsletterSentence(text: string): string {
-  let sentence = text.replace(/\s+/g, " ").trim();
-  sentence = sentence.replace(/^[-•ㄴ\s]+/, "").trim();
+  let sentence = stripSourceListNumbering(text).replace(/\s+/g, " ").trim();
+  sentence = sentence.replace(/^[-•▪◦‣ㄴ\s]+/, "").trim();
   sentence = sentence.replace(/[.。]+$/g, "");
+  sentence = normalizeCommonKoreanSpacing(sentence);
+  sentence = rewriteCommonReportFragment(sentence);
   sentence = sentence
     .replace(/했어요\s+소식/g, "한 소식")
     .replace(/됐어요\s+소식/g, "된 소식")
@@ -49,6 +72,8 @@ export function normalizeNewsletterSentence(text: string): string {
     [/늘어남$/g, "늘어났어요"],
     [/나타남$/g, "나타났어요"],
     [/줄어듦$/g, "줄었어요"],
+    [/거\s*같음$/g, "것 같아요"],
+    [/것\s*같음$/g, "것 같아요"],
     [/됨$/g, "됐어요"],
     [/함$/g, "했어요"],
     [/임$/g, "이에요"],
@@ -60,6 +85,7 @@ export function normalizeNewsletterSentence(text: string): string {
     [/확인$/g, "확인했어요"],
     [/검토$/g, "검토하고 있어요"],
     [/진행$/g, "진행하고 있어요"],
+    [/고민$/g, "고민하고 있어요"],
   ];
 
   for (const [pattern, replacement] of replacements) {
@@ -70,6 +96,61 @@ export function normalizeNewsletterSentence(text: string): string {
 
   if (!/[.!?。]$/.test(sentence)) {
     sentence += ".";
+  }
+
+  return sentence;
+}
+
+function normalizeCommonKoreanSpacing(sentence: string): string {
+  return sentence
+    .replace(/모객진행/g, "모객 진행")
+    .replace(/모객페이지/g, "모객 페이지")
+    .replace(/교수전용페이지/g, "교수 전용 페이지")
+    .replace(/후속작업/g, "후속 작업")
+    .replace(/가격책정/g, "가격 책정")
+    .replace(/만드는데는/g, "만드는 데는")
+    .replace(/거\s+같/g, "것 같");
+}
+
+function rewriteCommonReportFragment(sentence: string): string {
+  const scheduledRecruiting = sentence.match(
+    /^(.+?)\s+모객\s+진행\s*\((\d{1,2})\/(\d{1,2})\s*~\s*\)$/u,
+  );
+  if (scheduledRecruiting) {
+    const [, topic, month, day] = scheduledRecruiting;
+    return `${topic}${topicParticle(topic)} ${Number(month)}월 ${Number(day)}일부터 모객을 진행하고 있어요`;
+  }
+
+  const openedInside = sentence.match(/^(.+?)\s+내\s+(.+?)\s+오픈$/u);
+  if (openedInside) {
+    const [, location, target] = openedInside;
+    return `${location}에서 ${target}${objectParticle(target)} 열었어요`;
+  }
+
+  const opened = sentence.match(/^(.+?)\s+오픈$/u);
+  if (opened) {
+    const target = opened[1];
+    return `${target}${objectParticle(target)} 열었어요`;
+  }
+
+  const completedAndStarted = sentence.match(/^(.+?)\s+완료\s+및\s+착수$/u);
+  if (completedAndStarted) {
+    const target = completedAndStarted[1];
+    return `${target}${objectParticle(target)} 완료하고 다음 작업에 착수했어요`;
+  }
+
+  const completed = sentence.match(/^(.+?)\s+완료$/u);
+  if (completed) {
+    const target = completed[1];
+    return `${target}${objectParticle(target)} 완료했어요`;
+  }
+
+  if (/후속 작업$/u.test(sentence)) {
+    return `${sentence}${objectParticle(sentence)} 진행하고 있어요`;
+  }
+
+  if (/\s준비$/u.test(sentence)) {
+    return `${sentence}${objectParticle(sentence)} 하고 있어요`;
   }
 
   return sentence;
@@ -103,31 +184,31 @@ function hasFinalConsonant(char: string): boolean {
   return (code - hangulStart) % 28 !== 0;
 }
 
-function splitReadableSentences(text: string): string[] {
-  const normalized = text.replace(/\s+/g, " ").trim();
-  if (normalized.length <= 70) {
-    return [normalized];
-  }
+function objectParticle(text: string): string {
+  return hasFinalConsonant(lastHangulChar(text)) ? "을" : "를";
+}
 
-  const sentenceParts = normalized
-    .split(/(?<=[.!?。])\s+/)
+function topicParticle(text: string): string {
+  return hasFinalConsonant(lastHangulChar(text)) ? "은" : "는";
+}
+
+function lastHangulChar(text: string): string {
+  return [...text].reverse().find((char) => /[가-힣]/u.test(char)) ?? "";
+}
+
+function splitReadableSentences(text: string): string[] {
+  const sourceLines = stripSourceListNumbering(text)
+    .replace(/\r\n/g, "\n")
+    .split(/\n+/)
     .map((part) => part.trim())
     .filter(Boolean);
-  if (sentenceParts.length > 1) {
-    return sentenceParts;
-  }
 
-  return normalized
-    .split(/,\s*/)
-    .map((part) => part.trim())
-    .filter(Boolean)
-    .reduce<string[]>((chunks, part) => {
-      const last = chunks[chunks.length - 1];
-      if (!last || `${last}, ${part}`.length > 58) {
-        chunks.push(part);
-      } else {
-        chunks[chunks.length - 1] = `${last}, ${part}`;
-      }
-      return chunks;
-    }, []);
+  return sourceLines.flatMap((line) => {
+    const sentenceParts = line
+      .replace(/\s+/g, " ")
+      .split(/(?<=[.!?。])\s+/)
+      .map((part) => part.trim())
+      .filter(Boolean);
+    return sentenceParts.length ? sentenceParts : [line];
+  });
 }
