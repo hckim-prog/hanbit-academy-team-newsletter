@@ -39,6 +39,9 @@ function buildReportSections(
 ): NewsletterSection[] {
   const signals = parseSignalSections(report.signals);
   const bright = compactBullets([signals["긍정 신호"], signals["새로운 기회"]], 4);
+  const brightBody = bright.length
+    ? bright
+    : ["이번 보고서에는 별도로 작성된 긍정 신호가 없습니다."];
   const focus = compactBullets([report.operations], 4);
   const watching = compactBullets([signals["약한 신호"], signals["리스크"], report.operations], 4);
   const next = extractTopItems(report.next);
@@ -71,9 +74,9 @@ function buildReportSections(
       eyebrow: "반짝 소식",
       title: "좋은 신호가 보였어요",
       tone: "sky",
-      body: bright,
+      body: brightBody,
       imagePrompt: imagePrompt(
-        `A photorealistic upbeat photo of an online seminar or professional education session for adult educators and business partners. Show a presenter area, a large screen with unreadable blurred slides, notebooks, microphones or tablets, and attentive Korean adult participants, with positive energy and no schoolchildren. Related signal: ${bright.join(" ")}`,
+        `A photorealistic upbeat photo of an online seminar or professional education session for adult educators and business partners. Show a presenter area, a large screen with unreadable blurred slides, notebooks, microphones or tablets, and attentive Korean adult participants, with positive energy and no schoolchildren. Related signal: ${brightBody.join(" ")}`,
       ),
     },
     {
@@ -116,16 +119,64 @@ function toDisplayMonth(value: string): string {
 
 function parseSignalSections(text: string): Record<string, string> {
   const result: Record<string, string> = {};
-  const source = text.replace(/\r\n/g, "\n");
-  const regex =
-    /•\s*(긍정 신호|약한 신호|새로운 기회|리스크)\s*\n([\s\S]*?)(?=\n\s*•\s*(?:긍정 신호|약한 신호|새로운 기회|리스크)\s*\n|$)/g;
-  let match: RegExpExecArray | null;
+  let currentKey: SignalSectionKey | null = null;
+  let currentLines: string[] = [];
 
-  while ((match = regex.exec(source)) !== null) {
-    result[match[1]] = match[2].trim();
+  const flushCurrentSection = () => {
+    if (!currentKey) {
+      return;
+    }
+
+    const content = currentLines.join("\n").trim();
+    if (content) {
+      result[currentKey] = [result[currentKey], content].filter(Boolean).join("\n");
+    }
+    currentLines = [];
+  };
+
+  for (const line of text.replace(/\r\n?/g, "\n").split("\n")) {
+    const heading = parseSignalHeading(line);
+    if (heading) {
+      flushCurrentSection();
+      currentKey = heading.key;
+      currentLines = heading.inlineContent ? [heading.inlineContent] : [];
+      continue;
+    }
+
+    if (currentKey) {
+      currentLines.push(line);
+    }
   }
 
+  flushCurrentSection();
+
   return result;
+}
+
+type SignalSectionKey = "긍정 신호" | "약한 신호" | "새로운 기회" | "리스크";
+
+function parseSignalHeading(
+  line: string,
+): { key: SignalSectionKey; inlineContent: string } | null {
+  const match = line.match(
+    /^\s*(?:[-•▪◦‣ㄴ]\s*)?(긍정\s*신호|약한\s*신호|새로운\s*기회|리스크)\s*(?::|：)?\s*(.*)$/u,
+  );
+  if (!match) {
+    return null;
+  }
+
+  const normalizedLabel = match[1].replace(/\s+/g, "");
+  const keyByLabel: Record<string, SignalSectionKey> = {
+    긍정신호: "긍정 신호",
+    약한신호: "약한 신호",
+    새로운기회: "새로운 기회",
+    리스크: "리스크",
+  };
+
+  return {
+    key: keyByLabel[normalizedLabel],
+    inlineContent: match[2].trim(),
+  };
 }
 
 function compactBullets(blocks: Array<string | undefined>, limit: number): string[] {
@@ -144,7 +195,8 @@ function compactBullets(blocks: Array<string | undefined>, limit: number): strin
 }
 
 function isSignalHeading(line: string): boolean {
-  return /^(긍정 신호|약한 신호|새로운 기회|리스크)$/u.test(line.replace(/[.。:：]$/g, "").trim());
+  const heading = parseSignalHeading(line.replace(/[.。]$/g, ""));
+  return Boolean(heading && !heading.inlineContent);
 }
 
 function extractTopItems(text: string): string[] {
