@@ -1,8 +1,15 @@
+import { GoogleGenAI } from "@google/genai";
 import OpenAI from "openai";
-import type { Newsletter } from "./types";
+import type { AiCredentials, Newsletter } from "./types";
 
-export async function addGeneratedImages(newsletter: Newsletter, imageSeed = String(Date.now())): Promise<Newsletter> {
-  if (!process.env.OPENAI_API_KEY) {
+export async function addGeneratedImages(
+  newsletter: Newsletter,
+  imageSeed = String(Date.now()),
+  credentials: AiCredentials = {},
+): Promise<Newsletter> {
+  const openAiApiKey = credentials.openAiApiKey ?? process.env.OPENAI_API_KEY;
+  const geminiApiKey = credentials.geminiApiKey ?? process.env.GEMINI_API_KEY;
+  if (!openAiApiKey && !geminiApiKey) {
     return addFallbackPhotos(newsletter, imageSeed);
   }
 
@@ -17,29 +24,49 @@ export async function addGeneratedImages(newsletter: Newsletter, imageSeed = Str
     })),
   ];
 
-  try {
-    const generated = await Promise.all(
-      targets.map(async (target, index) => ({
-        ...target,
-        url: await generateImage(diversifyPrompt(target.prompt, imageSeed, index), index),
-      })),
-    );
-
-    const hero = generated.find((item) => item.kind === "hero");
-    const sections = newsletter.sections.map((section) => {
-      const match = generated.find((item) => item.kind === "section" && item.id === section.id);
-      return match ? { ...section, imageUrl: match.url } : section;
+  const providers: Array<{
+    name: "OpenAI" | "Gemini";
+    generate: (prompt: string, index: number) => Promise<string>;
+  }> = [];
+  if (openAiApiKey) {
+    providers.push({
+      name: "OpenAI",
+      generate: (prompt, index) => generateOpenAiImage(prompt, index, openAiApiKey),
     });
-
-    return {
-      ...newsletter,
-      heroImageUrl: hero?.url,
-      sections,
-    };
-  } catch (error) {
-    console.error("Image generation failed", error);
-    return addFallbackPhotos(newsletter, imageSeed);
   }
+  if (geminiApiKey) {
+    providers.push({
+      name: "Gemini",
+      generate: (prompt) => generateGeminiImage(prompt, geminiApiKey),
+    });
+  }
+
+  for (const provider of providers) {
+    try {
+      const generated = await Promise.all(
+        targets.map(async (target, index) => ({
+          ...target,
+          url: await provider.generate(diversifyPrompt(target.prompt, imageSeed, index), index),
+        })),
+      );
+
+      const hero = generated.find((item) => item.kind === "hero");
+      const sections = newsletter.sections.map((section) => {
+        const match = generated.find((item) => item.kind === "section" && item.id === section.id);
+        return match ? { ...section, imageUrl: match.url } : section;
+      });
+
+      return {
+        ...newsletter,
+        heroImageUrl: hero?.url,
+        sections,
+      };
+    } catch (error) {
+      console.error(`${provider.name} image generation failed; trying the next fallback.`, safeAiError(error));
+    }
+  }
+
+  return addFallbackPhotos(newsletter, imageSeed);
 }
 
 function resolveImageCount(newsletter: Newsletter): number {
@@ -72,8 +99,8 @@ Composition direction: ${direction}.
 Make this image visually distinct from the other newsletter images in subject distance, angle, lighting, and object mix. If people appear, cast Korean or East Asian adult professionals in a realistic Seoul office or publishing-workplace atmosphere. Avoid Western stock-photo casting, repeating the same desk, laptop-only setup, or generic office meeting composition.`;
 }
 
-async function generateImage(prompt: string, index: number): Promise<string> {
-  const openai = new OpenAI();
+async function generateOpenAiImage(prompt: string, index: number, apiKey: string): Promise<string> {
+  const openai = new OpenAI({ apiKey, maxRetries: 0 });
   const mode = process.env.OPENAI_IMAGE_MODE ?? "image_api";
 
   if (mode === "image_api") {
@@ -105,6 +132,43 @@ async function generateImage(prompt: string, index: number): Promise<string> {
   }
 
   return `data:image/png;base64,${imageData}`;
+}
+
+async function generateGeminiImage(prompt: string, apiKey: string): Promise<string> {
+  const gemini = new GoogleGenAI({ apiKey });
+  const response = await gemini.models.generateContent({
+    model: process.env.GEMINI_IMAGE_MODEL ?? "gemini-3.1-flash-image",
+    contents: prompt,
+    config: {
+      responseModalities: ["IMAGE"],
+      imageConfig: {
+        aspectRatio: "1:1",
+        imageSize: "1K",
+      },
+    },
+  });
+  const imagePart = response.candidates?.[0]?.content?.parts?.find(
+    (part) => part.inlineData?.data,
+  );
+  const data = imagePart?.inlineData?.data;
+  if (!data) {
+    throw new Error("Gemini Image API did not return image data.");
+  }
+
+  return `data:${imagePart.inlineData?.mimeType ?? "image/png"};base64,${data}`;
+}
+
+function safeAiError(error: unknown): { name?: string; code?: unknown; status?: unknown } {
+  if (!error || typeof error !== "object") {
+    return {};
+  }
+
+  const candidate = error as { name?: string; code?: unknown; status?: unknown };
+  return {
+    name: candidate.name,
+    code: candidate.code,
+    status: candidate.status,
+  };
 }
 
 function addFallbackPhotos(newsletter: Newsletter, imageSeed: string): Newsletter {
