@@ -11,98 +11,9 @@ export function buildNewsletter(input: RawReport | RawReport[]): Newsletter {
 
   const latestReport = [...reports].sort((a, b) => b.parsedTime - a.parsedTime)[0];
   const displayMonth = toDisplayMonth(latestReport.displayDate);
-  const itemLimit = reports.length === 1 ? 4 : reports.length === 2 ? 6 : 8;
-  const signalGroups = reports.map((report) => parseSignalSections(report.signals));
-  const bright = roundRobinItems(
-    reports.map((_, index) =>
-      compactBullets([signalGroups[index]["긍정 신호"], signalGroups[index]["새로운 기회"]], 4),
-    ),
-    itemLimit,
+  const sections = reports.flatMap((report, index) =>
+    buildReportSections(report, index, reports.length),
   );
-  const focus = roundRobinItems(
-    reports.map((report) => compactBullets([report.operations], 4)),
-    itemLimit,
-  );
-  const watching = roundRobinItems(
-    reports.map((report, index) =>
-      compactBullets(
-        [signalGroups[index]["약한 신호"], signalGroups[index]["리스크"], report.operations],
-        4,
-      ),
-    ),
-    itemLimit,
-  );
-  const next = roundRobinItems(
-    reports.map((report) => extractTopItems(report.next)),
-    Math.min(itemLimit, 6),
-  );
-  const request = roundRobinItems(
-    reports.map((report) => compactBullets([report.support, report.request], 3)),
-    Math.min(itemLimit, 6),
-  );
-
-  const sections: NewsletterSection[] = [
-    {
-      id: "summary",
-      eyebrow: "이번 호 한입 요약",
-      title: "요즘 TF는 이런 흐름으로 움직이고 있어요",
-      tone: "sun",
-      body: [buildOneLine(bright, next)],
-      imagePrompt: imagePrompt(
-        `A photorealistic editorial overview photo for a Korean education technology and publishing team newsletter. Show a varied workspace with printed books, digital textbooks, a tablet, a calendar, sticky planning notes, and one laptop partly off to the side under warm natural daylight. Main story: ${buildOneLine(bright, next)}`,
-      ),
-    },
-    {
-      id: "focus",
-      eyebrow: "집중 모드",
-      title: "지금 가장 열심히 챙기는 일",
-      tone: "mint",
-      body: focus,
-      imagePrompt: imagePrompt(
-        `A photorealistic documentary-style photo of Korean adult professionals preparing education publishing materials for sales and internal sharing. Show hands sorting printed sample books, tablets with blurred content, catalog sheets, file folders, and checklist pages on a worktable, not a generic laptop-only meeting. Related tasks: ${focus.join(" ")}`,
-      ),
-    },
-    {
-      id: "bright",
-      eyebrow: "반짝 소식",
-      title: "좋은 신호가 보였어요",
-      tone: "sky",
-      body: bright,
-      imagePrompt: imagePrompt(
-        `A photorealistic upbeat photo of an online seminar or professional education session for adult educators and business partners. Show a presenter area, a large screen with unreadable blurred slides, notebooks, microphones or tablets, and attentive Korean adult participants, with positive energy and no schoolchildren. Related signal: ${bright.join(" ")}`,
-      ),
-    },
-    {
-      id: "watching",
-      eyebrow: "체크 포인트",
-      title: "차근차근 살펴보는 중",
-      tone: "coral",
-      body: watching,
-      imagePrompt: imagePrompt(
-        `A photorealistic close-up quality review photo with a different mood from the other images. Show spreadsheet-like grids blurred on a monitor, printed QA notes, marked checkboxes, link verification notes, a calendar corner, and a hand using a pen or trackpad in a quiet office workspace. Watch points: ${watching.join(" ")}`,
-      ),
-    },
-    {
-      id: "next",
-      eyebrow: "다음 2주",
-      title: "집중해서 볼 우선순위",
-      tone: "violet",
-      body: next,
-      imagePrompt: imagePrompt(
-        `A photorealistic project planning photo showing a two-week roadmap from a top-down or angled perspective. Include a whiteboard or planning board, colored sticky notes, printed roadmap sheets, digital book work artifacts, AI/data review notes, and seminar follow-up materials arranged with clear depth. Next priorities: ${next.join(" ")}`,
-      ),
-    },
-    {
-      id: "request",
-      eyebrow: "함께 보기",
-      title: "같이 봐주시면 좋아요",
-      tone: "sky",
-      body: request.length ? request : ["이번 호의 별도 협업 요청은 없습니다."],
-      imagePrompt: imagePrompt(
-        `A photorealistic collaborative review photo of Korean adult coworkers giving feedback on a newsletter or content draft. Show annotated printouts, comment notes, a tablet with blurred layout blocks, coffee cups, and relaxed teamwork in a small review corner rather than a formal boardroom. Collaboration notes: ${request.join(" ")}`,
-      ),
-    },
-  ];
 
   return {
     subject: `[${TEAM_NAME}] ${displayMonth} 격주 뉴스레터`,
@@ -121,26 +32,81 @@ export function buildNewsletter(input: RawReport | RawReport[]): Newsletter {
   };
 }
 
-function roundRobinItems(groups: string[][], limit: number): string[] {
-  const combined: string[] = [];
-  const seen = new Set<string>();
-  const maxGroupLength = Math.max(0, ...groups.map((group) => group.length));
+function buildReportSections(
+  report: RawReport,
+  reportIndex: number,
+  reportCount: number,
+): NewsletterSection[] {
+  const signals = parseSignalSections(report.signals);
+  const bright = compactBullets([signals["긍정 신호"], signals["새로운 기회"]], 4);
+  const focus = compactBullets([report.operations], 4);
+  const watching = compactBullets([signals["약한 신호"], signals["리스크"], report.operations], 4);
+  const next = extractTopItems(report.next);
+  const request = compactBullets([report.support, report.request], 3);
+  const sectionId = (id: string) => (reportCount === 1 ? id : `source-${reportIndex + 1}-${id}`);
 
-  for (let itemIndex = 0; itemIndex < maxGroupLength && combined.length < limit; itemIndex += 1) {
-    for (const group of groups) {
-      const item = group[itemIndex];
-      if (!item || seen.has(item)) {
-        continue;
-      }
-      seen.add(item);
-      combined.push(item);
-      if (combined.length >= limit) {
-        break;
-      }
-    }
-  }
-
-  return combined;
+  return [
+    {
+      id: sectionId("summary"),
+      eyebrow: "이번 호 한입 요약",
+      title: "요즘 TF는 이런 흐름으로 움직이고 있어요",
+      tone: "sun",
+      body: [buildOneLine(bright, next)],
+      imagePrompt: imagePrompt(
+        `A photorealistic editorial overview photo for a Korean education technology and publishing team newsletter. Show a varied workspace with printed books, digital textbooks, a tablet, a calendar, sticky planning notes, and one laptop partly off to the side under warm natural daylight. Main story: ${buildOneLine(bright, next)}`,
+      ),
+    },
+    {
+      id: sectionId("focus"),
+      eyebrow: "집중 모드",
+      title: "지금 가장 열심히 챙기는 일",
+      tone: "mint",
+      body: focus,
+      imagePrompt: imagePrompt(
+        `A photorealistic documentary-style photo of Korean adult professionals preparing education publishing materials for sales and internal sharing. Show hands sorting printed sample books, tablets with blurred content, catalog sheets, file folders, and checklist pages on a worktable, not a generic laptop-only meeting. Related tasks: ${focus.join(" ")}`,
+      ),
+    },
+    {
+      id: sectionId("bright"),
+      eyebrow: "반짝 소식",
+      title: "좋은 신호가 보였어요",
+      tone: "sky",
+      body: bright,
+      imagePrompt: imagePrompt(
+        `A photorealistic upbeat photo of an online seminar or professional education session for adult educators and business partners. Show a presenter area, a large screen with unreadable blurred slides, notebooks, microphones or tablets, and attentive Korean adult participants, with positive energy and no schoolchildren. Related signal: ${bright.join(" ")}`,
+      ),
+    },
+    {
+      id: sectionId("watching"),
+      eyebrow: "체크 포인트",
+      title: "차근차근 살펴보는 중",
+      tone: "coral",
+      body: watching,
+      imagePrompt: imagePrompt(
+        `A photorealistic close-up quality review photo with a different mood from the other images. Show spreadsheet-like grids blurred on a monitor, printed QA notes, marked checkboxes, link verification notes, a calendar corner, and a hand using a pen or trackpad in a quiet office workspace. Watch points: ${watching.join(" ")}`,
+      ),
+    },
+    {
+      id: sectionId("next"),
+      eyebrow: "다음 2주",
+      title: "집중해서 볼 우선순위",
+      tone: "violet",
+      body: next,
+      imagePrompt: imagePrompt(
+        `A photorealistic project planning photo showing a two-week roadmap from a top-down or angled perspective. Include a whiteboard or planning board, colored sticky notes, printed roadmap sheets, digital book work artifacts, AI/data review notes, and seminar follow-up materials arranged with clear depth. Next priorities: ${next.join(" ")}`,
+      ),
+    },
+    {
+      id: sectionId("request"),
+      eyebrow: "함께 보기",
+      title: "같이 봐주시면 좋아요",
+      tone: "sky",
+      body: request.length ? request : ["이번 호의 별도 협업 요청은 없습니다."],
+      imagePrompt: imagePrompt(
+        `A photorealistic collaborative review photo of Korean adult coworkers giving feedback on a newsletter or content draft. Show annotated printouts, comment notes, a tablet with blurred layout blocks, coffee cups, and relaxed teamwork in a small review corner rather than a formal boardroom. Collaboration notes: ${request.join(" ")}`,
+      ),
+    },
+  ];
 }
 
 function toDisplayMonth(value: string): string {
