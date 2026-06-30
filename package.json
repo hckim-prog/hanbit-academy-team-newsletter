@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "test": "tsx --test src/**/*.test.ts",
     "gmail:oauth": "node scripts/gmail-oauth.mjs",
     "start": "next start",
     "lint": "eslint"
@@ -26,6 +27,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.9",
     "tailwindcss": "^4",
+    "tsx": "^4.22.4",
     "typescript": "^5"
   }
 }

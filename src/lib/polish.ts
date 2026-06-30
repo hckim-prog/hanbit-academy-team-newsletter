@@ -4,6 +4,7 @@ import { GoogleGenAI } from "@google/genai";
 import OpenAI from "openai";
 import type { Newsletter, TextAiProvider, TextAiStatus } from "./types";
 import { normalizeNewsletterSentence, stripSourceListNumbering } from "./korean-style";
+import { assertAnchorsPreserved } from "./polish-validation";
 
 export type PolishStyle = "concise" | "expand" | "natural";
 export type PolishResult = {
@@ -68,7 +69,7 @@ export async function polishNewsletter(
 
   if (geminiApiKey) {
     const geminiModels = [...new Set([
-      process.env.GEMINI_TEXT_MODEL ?? "gemini-3.5-flash",
+      process.env.GEMINI_TEXT_MODEL ?? "gemini-2.5-flash",
       "gemini-2.5-pro",
       "gemini-2.5-flash",
     ])];
@@ -109,7 +110,7 @@ export async function polishNewsletter(
       if (candidate.provider === "openai" && isBillingLimitError(error)) {
         skipOpenAiPolishUntilRestart = true;
       }
-      warnings.push(`${providerLabel(candidate.provider)} 연결이 원활하지 않아 다음 문장 엔진을 사용했어요.`);
+      warnings.push(formatPolishWarning(candidate.provider, candidate.model, error));
       console.warn(`${candidate.provider} polish fallback`, { model: candidate.model, ...safeAiError(error) });
     }
   }
@@ -146,7 +147,7 @@ async function polishWithGemini(
   apiKey: string,
   model: string,
 ) {
-  const gemini = new GoogleGenAI({ apiKey, httpOptions: { timeout: 15_000 } });
+  const gemini = new GoogleGenAI({ apiKey, httpOptions: { timeout: 30_000 } });
   const response = await gemini.models.generateContent({
     model,
     contents: polishRequest(newsletter, style),
@@ -223,13 +224,6 @@ function parsePolishResult(text: string): ParsedPolish {
   const normalized = text.replace(/^```json\s*/i, "").replace(/```$/i, "").trim();
   const parsed = JSON.parse(normalized) as Omit<ParsedPolish, "sections"> & { sections?: ParsedPolish["sections"] };
   return { ...parsed, sections: Array.isArray(parsed.sections) ? parsed.sections : [] };
-}
-
-function assertAnchorsPreserved(source: string, output: string) {
-  const anchors = source.match(/(?:\d+[./:-]?)+\d*|[A-Z][A-Z0-9-]{1,}/g) ?? [];
-  for (const anchor of anchors) {
-    if (!output.includes(anchor)) throw new Error(`AI 결과에서 원문 식별 정보가 누락됐습니다: ${anchor}`);
-  }
 }
 
 function assertStyleQuality(source: Newsletter, output: Newsletter, style: PolishStyle) {
@@ -326,14 +320,36 @@ function providerLabel(provider: Exclude<TextAiProvider, "local">) {
   return provider === "gemini" ? "Gemini" : "OpenAI";
 }
 
+function formatPolishWarning(
+  provider: Exclude<TextAiProvider, "local">,
+  model: string | undefined,
+  error: unknown,
+) {
+  const detail = safeAiError(error);
+  const engine = [providerLabel(provider), model].filter(Boolean).join(" ");
+  const reason = [
+    detail.status ? `HTTP ${detail.status}` : null,
+    detail.code ? String(detail.code) : null,
+    !detail.status && !detail.code ? detail.message : null,
+  ]
+    .filter(Boolean)
+    .join(" / ");
+  return `${engine} 문장 교정 실패${reason ? ` (${reason})` : ""}: 다음 문장 엔진을 사용했어요.`;
+}
+
 function isBillingLimitError(error: unknown) {
   if (!error || typeof error !== "object") return false;
   const candidate = error as { code?: unknown; error?: { code?: unknown } };
   return ["billing_hard_limit_reached", "insufficient_quota"].includes(String(candidate.code ?? candidate.error?.code));
 }
 
-function safeAiError(error: unknown): { name?: string; code?: unknown; status?: unknown } {
+function safeAiError(error: unknown): { name?: string; code?: unknown; status?: unknown; message?: string } {
   if (!error || typeof error !== "object") return {};
-  const candidate = error as { name?: string; code?: unknown; status?: unknown };
-  return { name: candidate.name, code: candidate.code, status: candidate.status };
+  const candidate = error as { name?: string; code?: unknown; status?: unknown; message?: string };
+  return {
+    name: candidate.name,
+    code: candidate.code,
+    status: candidate.status,
+    message: candidate.message?.slice(0, 160),
+  };
 }

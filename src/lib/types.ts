@@ -37,7 +37,7 @@ export type Newsletter = {
 };
 
 export type TextAiProvider = "gemini" | "openai" | "local";
-export type ImageAiProvider = "gemini" | "openai" | "curated";
+export type ImageAiProvider = "gemini" | "openai" | "curated" | "mixed";
 
 export type TextAiStatus = {
   provider: TextAiProvider;
@@ -48,6 +48,7 @@ export type TextAiStatus = {
 export type ImageAiStatus = {
   provider: ImageAiProvider;
   fallbackUsed: boolean;
+  providerCounts?: Partial<Record<Exclude<ImageAiProvider, "mixed">, number>>;
 };
 
 export type NewsletterAiStatus = {
