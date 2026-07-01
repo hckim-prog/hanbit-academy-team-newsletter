@@ -11,6 +11,7 @@ import {
   RefreshCw,
   Send,
   Sparkles,
+  Trash2,
   WandSparkles,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -360,6 +361,29 @@ export function NewsletterBuilder() {
     commitNewsletter(next);
   }
 
+  function deleteSelectedSection() {
+    if (!activeNewsletter || !selectedSection) {
+      return;
+    }
+
+    const hasContent = Boolean(selectedSection.title.trim() || selectedSection.body.some((line) => line.trim()));
+    if (
+      hasContent &&
+      !window.confirm(`“${selectedSection.title.trim() || "제목 없는 단락"}”의 내용과 단락을 함께 삭제할까요?`)
+    ) {
+      return;
+    }
+
+    const selectedIndex = activeNewsletter.sections.findIndex((section) => section.id === selectedSection.id);
+    const sections = activeNewsletter.sections.filter((section) => section.id !== selectedSection.id);
+    const next: Newsletter = { ...activeNewsletter, sections };
+    const nextSelectedSection = sections[Math.min(selectedIndex, sections.length - 1)];
+
+    commitNewsletter(next);
+    setSelectedSectionId(nextSelectedSection?.id ?? "");
+    setUiStatus(hasContent ? "내용과 단락을 삭제했습니다." : "빈 단락을 삭제했습니다.", "done");
+  }
+
   return (
     <main className="min-h-screen bg-[#111111] text-[#f6f1e8]">
       <div className="grid min-h-screen grid-cols-[420px_minmax(0,1fr)] max-[1180px]:grid-cols-[360px_minmax(0,1fr)] max-[900px]:block">
@@ -575,6 +599,16 @@ export function NewsletterBuilder() {
                       className="field-input resize-y leading-6"
                     />
                   </label>
+                  <button
+                    type="button"
+                    onClick={deleteSelectedSection}
+                    className="flex min-h-11 items-center justify-center gap-2 rounded-[8px] border border-[#ff6b4a]/50 bg-[#ff6b4a]/10 px-3 py-2 text-xs font-black text-[#ffc0b0] transition hover:border-[#ff6b4a] hover:bg-[#ff6b4a]/20"
+                  >
+                    <Trash2 size={15} />
+                    {selectedSection.title.trim() || selectedSection.body.some((line) => line.trim())
+                      ? "내용과 단락 삭제"
+                      : "빈 단락 삭제"}
+                  </button>
                 </div>
               ) : (
                 <p className="rounded-[8px] border border-white/10 bg-black/20 p-3 text-xs leading-5 text-zinc-500">
