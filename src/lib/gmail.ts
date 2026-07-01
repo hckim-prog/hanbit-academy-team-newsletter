@@ -3,7 +3,7 @@ import { OAuth2Client } from "google-auth-library";
 type GmailMode = "send" | "draft";
 
 type GmailPayload = {
-  to: string[];
+  bcc: string[];
   subject: string;
   html: string;
   mode: GmailMode;
@@ -21,7 +21,7 @@ export async function deliverNewsletterViaGmail(payload: GmailPayload): Promise<
   const sender = process.env.GMAIL_SENDER_EMAIL || payload.senderEmail || (await getGoogleAccountEmail(accessToken));
   const raw = createMimeMessage({
     from: sender,
-    to: payload.to,
+    bcc: payload.bcc,
     subject: payload.subject,
     html: payload.html,
   });
@@ -53,20 +53,21 @@ export async function deliverNewsletterViaGmail(payload: GmailPayload): Promise<
   };
 }
 
-function createMimeMessage({
+export function createMimeMessage({
   from,
-  to,
+  bcc,
   subject,
   html,
 }: {
   from: string;
-  to: string[];
+  bcc: string[];
   subject: string;
   html: string;
 }) {
   const headers = [
     `From: ${from}`,
-    `To: ${to.join(", ")}`,
+    "To: undisclosed-recipients:;",
+    `Bcc: ${bcc.join(", ")}`,
     `Subject: ${encodeMimeSubject(subject)}`,
     "MIME-Version: 1.0",
     'Content-Type: text/html; charset="UTF-8"',

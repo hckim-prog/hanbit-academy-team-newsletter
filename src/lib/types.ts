@@ -11,6 +11,101 @@ export type RawReport = {
 
 export type ReportSourceId = "kim-hochul" | "kim-taejin" | "son-hyejin";
 
+export type DocumentType = "leader" | "member";
+export type SourcePerson = "김호철" | "김태진" | "손혜진";
+export type NewsletterAudienceMode = "team" | "executive";
+
+export type ReportSource = {
+  id: ReportSourceId;
+  sourcePerson: SourcePerson;
+  documentType: DocumentType;
+  spreadsheetId: string;
+  sheetId: number;
+  expectedSpreadsheetTitle: string;
+  expectedSheetTitle: string;
+  parser: DocumentType;
+  reportYear?: number;
+};
+
+export type ReportRound = {
+  roundId: string;
+  anchorDate: string;
+  leader: {
+    sourceId: ReportSourceId;
+    sourcePerson: SourcePerson;
+    reportDate: string;
+    sourceRange: string;
+  };
+  members: Array<{
+    sourceId: ReportSourceId;
+    sourcePerson: SourcePerson;
+    reportDate: string;
+    sourceRange: string;
+    dayDifference: number;
+    alignment: "included" | "warning";
+  }>;
+  excludedCandidates: Array<{
+    sourceId: ReportSourceId;
+    sourcePerson: SourcePerson;
+    reportDate: string;
+    sourceRange: string;
+    dayDifference: number;
+  }>;
+  warnings: string[];
+};
+
+export type EvidenceRef = {
+  sourcePerson: SourcePerson;
+  documentType: DocumentType;
+  sourceRange: string;
+  rawText: string;
+  evidenceType: "direction" | "execution" | "metric" | "schedule" | "risk" | "decision";
+};
+
+export type FactCard = {
+  id: string;
+  sourcePerson: SourcePerson;
+  documentType: DocumentType;
+  sourceRange: string;
+  rawText: string;
+  topic: string;
+  project: string;
+  status: "completed" | "in_progress" | "planned" | "blocked" | "risk" | "opportunity" | "request" | "unknown";
+  importance: "critical" | "high" | "medium" | "low";
+  audience: NewsletterAudienceMode | "both";
+  sensitivity: "normal" | "internal" | "confidential" | "financial" | "contract" | "personal";
+  evidence: EvidenceRef[];
+  numbers: string[];
+  dates: string[];
+  organizations: string[];
+  recommendedSection: "overview" | "progress" | "achievement" | "issue" | "next" | "request";
+  newsletterSentence: string;
+};
+
+export type StoryCard = {
+  id: string;
+  leaderTopic: string;
+  title: string;
+  summary: string;
+  leaderFacts: FactCard[];
+  supportingFacts: FactCard[];
+  status: FactCard["status"];
+  importance: FactCard["importance"];
+  sensitivity: FactCard["sensitivity"];
+  recommendedSection: FactCard["recommendedSection"];
+  teamNewsletterSentence: string;
+  executiveNewsletterSentence: string;
+  evidence: EvidenceRef[];
+};
+
+export type EditorialPlan = {
+  round: ReportRound;
+  audienceMode: NewsletterAudienceMode;
+  stories: StoryCard[];
+  generatedAt: string;
+  warnings: string[];
+};
+
 export type NewsletterSection = {
   id: string;
   eyebrow: string;

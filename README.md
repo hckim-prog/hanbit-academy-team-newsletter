@@ -129,7 +129,7 @@ email
 
 - `Gmail 임시보관함`: Gmail Draft를 만듭니다.
 - `Gmail 발송`: 발송 확인 체크가 켜져 있을 때만 실제 발송합니다.
-- 수신자는 `Bcc`에 넣고, 발송 계정은 Gmail OAuth 프로필에서 자동으로 확인합니다.
+- 한 명 또는 여러 명의 수신자는 모두 `Bcc`에 넣고, `To`에는 `undisclosed-recipients:;`만 표시해 수신자 주소가 서로 노출되지 않도록 합니다. 발송 계정은 Gmail OAuth 프로필에서 자동으로 확인합니다.
 
 Vercel에 필요한 값:
 
