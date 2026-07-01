@@ -11,9 +11,11 @@ export function buildNewsletter(input: RawReport | RawReport[]): Newsletter {
 
   const latestReport = [...reports].sort((a, b) => b.parsedTime - a.parsedTime)[0];
   const displayMonth = toDisplayMonth(latestReport.displayDate);
-  const sections = deduplicateNewsletterSections(
+  const contentSections = deduplicateNewsletterSections(
     mergeReportSections(reports.map(buildReportSections)),
   );
+  const summary = buildSummarySection(contentSections);
+  const sections = summary ? [summary, ...contentSections] : contentSections;
 
   return {
     subject: `[${TEAM_NAME}] ${displayMonth} 격주 뉴스레터`,
@@ -41,16 +43,6 @@ function buildReportSections(report: RawReport): NewsletterSection[] {
   const request = compactBullets([report.support, report.request], 3);
 
   return [
-    {
-      id: "summary",
-      eyebrow: "이번 호 한입 요약",
-      title: "요즘 TF는 이런 흐름으로 움직이고 있어요",
-      tone: "sun",
-      body: [buildOneLine()],
-      imagePrompt: imagePrompt(
-        `A photorealistic editorial overview photo for a Korean education technology and publishing team newsletter. Show a varied workspace with printed books, digital textbooks, a tablet, a calendar, sticky planning notes, and one laptop partly off to the side under warm natural daylight. Main story: ${buildOneLine()}`,
-      ),
-    },
     {
       id: "focus",
       eyebrow: "집중 모드",
@@ -146,8 +138,6 @@ function deduplicateNewsletterSections(sections: NewsletterSection[]): Newslette
   }
 
   return sections.map((section) => {
-    if (section.id === "summary") return section;
-
     const body = selected
       .filter((item) => item.sectionId === section.id)
       .map((item) => item.text);
@@ -315,8 +305,42 @@ function extractTopItems(text: string): string[] {
   });
 }
 
-function buildOneLine(): string {
-  return "이번 호에서는 최근 성과와 진행 중인 핵심 업무, 다음 2주 우선순위를 한눈에 살펴봅니다.";
+function buildSummarySection(sections: NewsletterSection[]): NewsletterSection | null {
+  const sectionLabels: Array<{ id: string; label: string }> = [
+    { id: "bright", label: "성과와 기회" },
+    { id: "focus", label: "핵심 업무" },
+    { id: "next", label: "다음 2주" },
+  ];
+  const parts = sectionLabels.flatMap(({ id, label }) => {
+    const section = sections.find((candidate) => candidate.id === id);
+    const item = section?.body
+      .filter(isConcreteSummaryItem)
+      .sort((left, right) => informationScore(right) - informationScore(left))[0];
+    return item ? [`${label}: ${item}`] : [];
+  });
+
+  if (!parts.length) {
+    return null;
+  }
+
+  const summary = parts.join(" ");
+  return {
+    id: "summary",
+    eyebrow: "이번 호 한입 요약",
+    title: "이번 호 핵심 흐름",
+    tone: "sun",
+    body: [summary],
+    imagePrompt: imagePrompt(
+      `A photorealistic editorial overview photo for a Korean education technology and publishing team newsletter. Show a varied workspace with printed books, digital textbooks, a tablet, a calendar, sticky planning notes, and one laptop partly off to the side under warm natural daylight. Main story: ${summary}`,
+    ),
+  };
+}
+
+function isConcreteSummaryItem(item: string): boolean {
+  const normalized = item.replace(/\s+/g, " ").trim();
+  if (normalized.length < 8) return false;
+
+  return !/^(?:없음|해당 없음)|이번 (?:보고서|호).*?(?:없(?:습니다|어요)|작성되지 않았습니다)/u.test(normalized);
 }
 
 function toNewsletterSentence(text: string): string {
