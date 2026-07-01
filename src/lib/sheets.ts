@@ -1,10 +1,25 @@
 import { JWT } from "google-auth-library";
 import type { RawReport, ReportSourceId } from "./types";
 import { stripSourceListNumbering } from "./korean-style";
-import { normalizeReportDate, reportDateTimestamp } from "./report-date";
-import { getReportSource, isReportSourceId } from "./report-sources";
 
 const SOURCE_HEADER = "주간업무보고(2주간격)";
+
+const REPORT_SOURCES: Record<ReportSourceId, { spreadsheetId: string; sheetId: number }> = {
+  "kim-hochul": {
+    spreadsheetId:
+      process.env.GOOGLE_SHEETS_SPREADSHEET_ID ??
+      "1M1U0-RTNhlkS9bWvOaALYHW7Mup8sxXboS2wZJPwpN8",
+    sheetId: 88343512,
+  },
+  "kim-taejin": {
+    spreadsheetId: "1XxHN1CdHfEwWqzm71pE0iUsbco9WzPm7QzpM2wTxlHw",
+    sheetId: 1023956755,
+  },
+  "son-hyejin": {
+    spreadsheetId: "1XxHN1CdHfEwWqzm71pE0iUsbco9WzPm7QzpM2wTxlHw",
+    sheetId: 716862879,
+  },
+};
 
 type SheetsValuesResponse = {
   values?: string[][];
@@ -24,11 +39,14 @@ type SheetsAuthorization = {
   accessToken?: string;
 };
 
-export { isReportSourceId };
+export function isReportSourceId(value: unknown): value is ReportSourceId {
+  return typeof value === "string" && value in REPORT_SOURCES;
+}
 
 export async function getLatestReport(sourceId: ReportSourceId = "kim-hochul"): Promise<RawReport> {
   return (await getLatestReports([sourceId]))[0];
 }
+
 export async function getLatestReports(sourceIds: ReportSourceId[]): Promise<RawReport[]> {
   const authorization = await getSheetsAuthorization();
   return Promise.all(sourceIds.map((sourceId) => getLatestReportFromSource(sourceId, authorization)));
@@ -38,7 +56,7 @@ async function getLatestReportFromSource(
   sourceId: ReportSourceId,
   authorization: SheetsAuthorization,
 ): Promise<RawReport> {
-  const source = getReportSource(sourceId);
+  const source = REPORT_SOURCES[sourceId];
   const sheetName = await resolveSheetName(source.spreadsheetId, source.sheetId, authorization);
   const rows = await readSheetValues(source.spreadsheetId, sheetName, authorization);
   const candidates: RawReport[] = [];
@@ -54,17 +72,14 @@ async function getLatestReportFromSource(
     }
 
     const reportRow = rows[reportIndex];
-    const normalizedDate = normalizeReportDate(reportRow[0] ?? "", {
-      spreadsheetTitle: source.expectedSpreadsheetTitle,
-      reportYear: source.reportYear,
-    });
-    if (!normalizedDate) {
+    const parsed = parseKoreanMonthDay(reportRow[0] ?? "");
+    if (!parsed) {
       return;
     }
 
     candidates.push({
       displayDate: reportRow[0] ?? "",
-      parsedTime: reportDateTimestamp(normalizedDate),
+      parsedTime: parsed.getTime(),
       sourceRange: `${sheetName}!A${reportIndex + 1}:F${reportIndex + 1}`,
       signals: stripSourceListNumbering(reportRow[1] ?? ""),
       operations: stripSourceListNumbering(reportRow[2] ?? ""),
@@ -94,7 +109,7 @@ function findNextReportRowIndex(rows: string[][], startIndex: number): number {
       return -1;
     }
 
-    if (normalizeReportDate(firstCell)) {
+    if (parseKoreanMonthDay(firstCell)) {
       return index;
     }
   }
@@ -196,4 +211,14 @@ async function getServiceAccountAccessToken(): Promise<string> {
   }
 
   return token.token;
+}
+
+function parseKoreanMonthDay(value: string): Date | null {
+  const match = value.trim().match(/(\d{1,2})\s*월\s*(\d{1,2})\s*일/);
+  if (!match) {
+    return null;
+  }
+
+  const year = new Date().getFullYear();
+  return new Date(year, Number(match[1]) - 1, Number(match[2]));
 }
