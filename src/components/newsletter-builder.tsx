@@ -810,7 +810,7 @@ function buildEmailHtml(newsletter: Newsletter, subject: string) {
   const sectionRows = newsletter.sections
     .map((section, index) => {
       const body =
-        section.body.length === 1
+        section.body.length === 1 && section.id !== "summary"
           ? `<p style="margin:0;color:#2a2a2a;font-size:16px;line-height:1.75;">${escapeHtml(section.body[0])}</p>`
           : `<ul style="margin:0;padding:0 0 0 18px;color:#2a2a2a;font-size:15px;line-height:1.7;">${section.body
               .map((item) => `<li style="margin:0 0 8px 0;">${escapeHtml(item)}</li>`)

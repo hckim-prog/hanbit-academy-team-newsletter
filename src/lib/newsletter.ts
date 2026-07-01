@@ -306,32 +306,27 @@ function extractTopItems(text: string): string[] {
 }
 
 function buildSummarySection(sections: NewsletterSection[]): NewsletterSection | null {
-  const sectionLabels: Array<{ id: string; label: string }> = [
-    { id: "bright", label: "성과와 기회" },
-    { id: "focus", label: "핵심 업무" },
-    { id: "next", label: "다음 2주" },
-  ];
-  const parts = sectionLabels.flatMap(({ id, label }) => {
+  const sourceSectionIds = ["bright", "focus", "next"];
+  const items = sourceSectionIds.flatMap((id) => {
     const section = sections.find((candidate) => candidate.id === id);
     const item = section?.body
       .filter(isConcreteSummaryItem)
       .sort((left, right) => informationScore(right) - informationScore(left))[0];
-    return item ? [`${label}: ${item}`] : [];
+    return item ? [item] : [];
   });
 
-  if (!parts.length) {
+  if (!items.length) {
     return null;
   }
 
-  const summary = parts.join(" ");
   return {
     id: "summary",
     eyebrow: "이번 호 한입 요약",
     title: "이번 호 핵심 흐름",
     tone: "sun",
-    body: [summary],
+    body: items,
     imagePrompt: imagePrompt(
-      `A photorealistic editorial overview photo for a Korean education technology and publishing team newsletter. Show a varied workspace with printed books, digital textbooks, a tablet, a calendar, sticky planning notes, and one laptop partly off to the side under warm natural daylight. Main story: ${summary}`,
+      `A photorealistic editorial overview photo for a Korean education technology and publishing team newsletter. Show a varied workspace with printed books, digital textbooks, a tablet, a calendar, sticky planning notes, and one laptop partly off to the side under warm natural daylight. Main stories: ${items.join(" ")}`,
     ),
   };
 }

@@ -35,10 +35,12 @@ test("요약은 실제 성과와 핵심 업무, 다음 2주 내용을 담는다"
   const newsletter = buildNewsletter(report());
   const summary = newsletter.sections.find((section) => section.id === "summary");
 
+  assert.equal(summary?.body.length, 3);
   assert.match(summary?.body[0] ?? "", /디지털 교재 파일럿/u);
-  assert.match(summary?.body[0] ?? "", /디지털 교재 50종/u);
-  assert.match(summary?.body[0] ?? "", /유료 전환 성과/u);
-  assert.doesNotMatch(summary?.body[0] ?? "", /한눈에 살펴봅니다/u);
+  assert.match(summary?.body[1] ?? "", /디지털 교재 50종/u);
+  assert.match(summary?.body[2] ?? "", /유료 전환 성과/u);
+  assert.equal(summary?.body.some((item) => /^(?:성과와 기회|핵심 업무|다음 2주):/u.test(item)), false);
+  assert.equal(summary?.body.some((item) => /한눈에 살펴봅니다/u.test(item)), false);
 });
 
 test("요약할 실제 업무가 없으면 한입 요약 섹션을 만들지 않는다", () => {
