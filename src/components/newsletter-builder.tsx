@@ -11,6 +11,7 @@ import {
   RefreshCw,
   Send,
   Sparkles,
+  Trash2,
   WandSparkles,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -120,7 +121,7 @@ export function NewsletterBuilder() {
       setSubject(payload.newsletter.subject);
       window.setTimeout(updateEmailPreview, 50);
       setUiStatus(
-        `초안을 만들었습니다. ${formatAiStatus(payload.aiStatus)} 가운데 발송본 미리보기를 확인해 주세요.`,
+        `초안을 만들었습니다. ${formatAiStatus(payload.aiStatus)} 가운데 발송본 미리보기를 확인해 주세요.${formatWarnings(payload.warnings)}`,
         "done",
       );
     } catch (error) {
@@ -182,8 +183,8 @@ export function NewsletterBuilder() {
       const textStatus = payload.aiStatus?.text;
       setUiStatus(
         textStatus?.changed === false
-          ? `${providerLabel(textStatus.provider)} 엔진으로 확인했지만 변경할 문장이 없었습니다.`
-          : `전체 문장을 ${styleLabels[style]} 적용했습니다. 문장 · ${textStatus ? providerLabel(textStatus.provider) : "확인 불가"}`,
+          ? `${providerLabel(textStatus.provider)} 엔진으로 확인했지만 변경할 문장이 없었습니다.${formatWarnings(payload.warnings)}`
+          : `전체 문장을 ${styleLabels[style]} 적용했습니다. 문장 · ${textStatus ? providerLabel(textStatus.provider) : "확인 불가"}${formatWarnings(payload.warnings)}`,
         "done",
       );
     } catch (error) {
@@ -228,7 +229,7 @@ export function NewsletterBuilder() {
       setSelectedSectionId((current) => keepSelectedSection(current, nextNewsletter));
       window.setTimeout(updateEmailPreview, 50);
       setUiStatus(
-        `이미지를 새 조합으로 바꿨습니다. 이미지 · ${payload.aiStatus?.image ? providerLabel(payload.aiStatus.image.provider) : "확인 불가"}`,
+        `이미지를 새 조합으로 바꿨습니다. 이미지 · ${payload.aiStatus?.image ? formatImageStatus(payload.aiStatus.image) : "확인 불가"}${formatWarnings(payload.warnings)}`,
         "done",
       );
     } catch (error) {
@@ -358,6 +359,29 @@ export function NewsletterBuilder() {
     };
 
     commitNewsletter(next);
+  }
+
+  function deleteSelectedSection() {
+    if (!activeNewsletter || !selectedSection) {
+      return;
+    }
+
+    const hasContent = Boolean(selectedSection.title.trim() || selectedSection.body.some((line) => line.trim()));
+    if (
+      hasContent &&
+      !window.confirm(`“${selectedSection.title.trim() || "제목 없는 단락"}”의 내용과 단락을 함께 삭제할까요?`)
+    ) {
+      return;
+    }
+
+    const selectedIndex = activeNewsletter.sections.findIndex((section) => section.id === selectedSection.id);
+    const sections = activeNewsletter.sections.filter((section) => section.id !== selectedSection.id);
+    const next: Newsletter = { ...activeNewsletter, sections };
+    const nextSelectedSection = sections[Math.min(selectedIndex, sections.length - 1)];
+
+    commitNewsletter(next);
+    setSelectedSectionId(nextSelectedSection?.id ?? "");
+    setUiStatus(hasContent ? "내용과 단락을 삭제했습니다." : "빈 단락을 삭제했습니다.", "done");
   }
 
   return (
@@ -533,7 +557,7 @@ export function NewsletterBuilder() {
                   문장 · {aiStatus.text ? providerLabel(aiStatus.text.provider) : "생성 후 표시"}
                 </span>
                 <span className="rounded-full bg-white/[0.08] px-2.5 py-1 text-zinc-200">
-                  이미지 · {aiStatus.image ? providerLabel(aiStatus.image.provider) : includeImages ? "생성 후 표시" : "사용 안 함"}
+                  이미지 · {aiStatus.image ? formatImageStatus(aiStatus.image) : includeImages ? "생성 후 표시" : "사용 안 함"}
                 </span>
               </div>
               {aiStatus.text?.fallbackUsed || aiStatus.image?.fallbackUsed ? (
@@ -575,6 +599,16 @@ export function NewsletterBuilder() {
                       className="field-input resize-y leading-6"
                     />
                   </label>
+                  <button
+                    type="button"
+                    onClick={deleteSelectedSection}
+                    className="flex min-h-11 items-center justify-center gap-2 rounded-[8px] border border-[#ff6b4a]/50 bg-[#ff6b4a]/10 px-3 py-2 text-xs font-black text-[#ffc0b0] transition hover:border-[#ff6b4a] hover:bg-[#ff6b4a]/20"
+                  >
+                    <Trash2 size={15} />
+                    {selectedSection.title.trim() || selectedSection.body.some((line) => line.trim())
+                      ? "내용과 단락 삭제"
+                      : "빈 단락 삭제"}
+                  </button>
                 </div>
               ) : (
                 <p className="rounded-[8px] border border-white/10 bg-black/20 p-3 text-xs leading-5 text-zinc-500">
@@ -647,17 +681,37 @@ function createImageSeed() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function providerLabel(provider: "gemini" | "openai" | "local" | "curated") {
+function providerLabel(provider: "gemini" | "openai" | "local" | "curated" | "mixed") {
   if (provider === "gemini") return "Gemini";
   if (provider === "openai") return "OpenAI";
   if (provider === "curated") return "기본 사진";
+  if (provider === "mixed") return "혼합 이미지";
   return "로컬 교정";
+}
+
+function formatImageStatus(status: NonNullable<NewsletterAiStatus["image"]>) {
+  const counts = status.providerCounts;
+  if (!counts || status.provider !== "mixed") return providerLabel(status.provider);
+
+  const details = [
+    counts.gemini ? `Gemini ${counts.gemini}장` : null,
+    counts.openai ? `OpenAI ${counts.openai}장` : null,
+    counts.curated ? `기본 사진 ${counts.curated}장` : null,
+  ].filter(Boolean);
+  return details.length ? details.join(" + ") : providerLabel(status.provider);
+}
+
+function formatWarnings(warnings: string[] | undefined) {
+  if (!warnings?.length) return "";
+  const visible = warnings.slice(0, 2).join(" ");
+  const remaining = warnings.length > 2 ? ` 외 ${warnings.length - 2}건` : "";
+  return `\n확인: ${visible}${remaining}`;
 }
 
 function formatAiStatus(status: NewsletterAiStatus) {
   const parts = [
     status.text ? `문장 · ${providerLabel(status.text.provider)}` : null,
-    status.image ? `이미지 · ${providerLabel(status.image.provider)}` : null,
+    status.image ? `이미지 · ${formatImageStatus(status.image)}` : null,
   ].filter(Boolean);
   return parts.length ? `${parts.join(" / ")}.` : "";
 }
@@ -756,7 +810,7 @@ function buildEmailHtml(newsletter: Newsletter, subject: string) {
   const sectionRows = newsletter.sections
     .map((section, index) => {
       const body =
-        section.body.length === 1
+        section.body.length === 1 && section.id !== "summary"
           ? `<p style="margin:0;color:#2a2a2a;font-size:16px;line-height:1.75;">${escapeHtml(section.body[0])}</p>`
           : `<ul style="margin:0;padding:0 0 0 18px;color:#2a2a2a;font-size:15px;line-height:1.7;">${section.body
               .map((item) => `<li style="margin:0 0 8px 0;">${escapeHtml(item)}</li>`)

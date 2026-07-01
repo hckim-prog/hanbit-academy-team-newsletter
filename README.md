@@ -19,6 +19,8 @@ Vercel에 배포해서 쓰는 디지털콘텐츠전환TF 격주 뉴스레터 생
 - 한국어 문장 경계와 맞춤법 원칙을 반영해 번호·명사형 보고 문장을 자연스러운 요체로 다듬기
 - 같은 내용에서도 매번 다른 이미지 조합을 고르는 이미지 새로고침
 - 이미지 생성 실패 시에도 여러 주제 풀을 섞은 실사진 fallback 사용
+- 동일·유사 문장을 뉴스레터 전체에서 정리하고 섹션 성격에 맞는 한 곳에만 배치
+- 일부 이미지 생성이 실패해도 성공한 AI 이미지는 유지하고 실패한 자리만 기본 사진으로 대체
 - Vercel 배포 가능
 
 ## 로컬 실행
@@ -52,7 +54,7 @@ GOOGLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\
 
 # 선택 설정
 GEMINI_API_KEY=...
-GEMINI_TEXT_MODEL=gemini-3.5-flash
+GEMINI_TEXT_MODEL=gemini-2.5-flash
 OPENAI_TEXT_MODEL=gpt-5.5
 OPENAI_AUTO_POLISH=false
 NEWSLETTER_IMAGE_COUNT=7
@@ -74,7 +76,13 @@ ACADEMY_NEWSLETTER_RECIPIENTS=member1@example.com,member2@example.com
 
 `OPENAI_AUTO_POLISH=true`로 설정하면 생성 단계에서 Gemini를 우선 사용하고 OpenAI, 로컬 교정 순서로 한국어 본문을 다듬습니다. 각 결과는 섹션·항목 순서와 날짜·숫자 보존 검사를 통과해야 적용됩니다. 기본값은 `false`이며, 이때도 로컬 한국어 문장 보정은 적용됩니다.
 
-이미지는 Gemini, OpenAI 순서로 생성합니다. billing hard limit, quota, model access 문제로 모두 실패하면 뉴스레터가 깨지지 않도록 본문 키워드 기반의 기본 사진을 자동으로 표시합니다. 화면의 `AI 사용 상태`에서 실제 사용된 문장·이미지 엔진을 확인할 수 있습니다.
+이미지는 각 이미지마다 Gemini, OpenAI 순서로 생성합니다. billing hard limit, quota, model access 문제로 특정 이미지가 실패하면 성공한 AI 이미지는 유지하고 실패한 자리만 본문 키워드 기반의 기본 사진으로 대체합니다. 화면의 `AI 사용 상태`에는 엔진별 이미지 장수와 안전하게 요약한 오류 코드가 표시됩니다.
+
+여러 업무보고를 합칠 때는 완전히 같거나 사실상 같은 문장을 한 번만 남깁니다. 성과·기회는 `반짝 소식`, 진행 업무는 `집중 모드`, 약한 신호·리스크는 `체크 포인트`, 향후 계획은 `다음 2주`에 우선 배치합니다. 한입 요약은 성과·핵심 업무·다음 2주의 실제 항목 가운데 구체성이 높은 내용을 골라 분류 제목 없이 점 목록으로 표시하며, AI 문장 교정에서도 일반 안내문으로 바꾸지 않습니다. 요약할 업무가 없으면 해당 섹션을 표시하지 않습니다.
+
+히어로 제목 `디콘전TF 소식이 도착했어요`는 뉴스레터의 고정 브랜드 문구로 유지하며 AI 문장 교정 대상에서 제외합니다.
+
+Vercel에서 민감 변수로 등록한 API 키는 보안상 `vercel env pull`로 값을 다시 내려받을 수 없습니다. 로컬 개발에서도 Gemini를 사용하려면 별도의 로컬 키를 `.env.development.local`에 설정해야 합니다. Production 배포에서는 Vercel에 등록된 민감 변수가 정상적으로 주입됩니다.
 
 Google Sheet가 비공개라면 서비스 계정을 만들고 원본 스프레드시트에 해당 서비스 계정 이메일을 보기 권한으로 공유하세요.
 
@@ -121,7 +129,7 @@ email
 
 - `Gmail 임시보관함`: Gmail Draft를 만듭니다.
 - `Gmail 발송`: 발송 확인 체크가 켜져 있을 때만 실제 발송합니다.
-- 수신자는 `Bcc`에 넣고, 발송 계정은 Gmail OAuth 프로필에서 자동으로 확인합니다.
+- 한 명 또는 여러 명의 수신자는 모두 `Bcc`에 넣고, `To`에는 `undisclosed-recipients:;`만 표시해 수신자 주소가 서로 노출되지 않도록 합니다. 발송 계정은 Gmail OAuth 프로필에서 자동으로 확인합니다.
 
 Vercel에 필요한 값:
 

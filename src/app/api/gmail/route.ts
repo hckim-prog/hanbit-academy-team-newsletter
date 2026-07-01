@@ -44,7 +44,7 @@ export async function POST(request: Request) {
     }
 
     const result = await deliverNewsletterViaGmail({
-      to: recipients,
+      bcc: recipients,
       subject,
       html,
       mode,

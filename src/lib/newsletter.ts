@@ -11,7 +11,11 @@ export function buildNewsletter(input: RawReport | RawReport[]): Newsletter {
 
   const latestReport = [...reports].sort((a, b) => b.parsedTime - a.parsedTime)[0];
   const displayMonth = toDisplayMonth(latestReport.displayDate);
-  const sections = mergeReportSections(reports.map(buildReportSections));
+  const contentSections = deduplicateNewsletterSections(
+    mergeReportSections(reports.map(buildReportSections)),
+  );
+  const summary = buildSummarySection(contentSections);
+  const sections = summary ? [summary, ...contentSections] : contentSections;
 
   return {
     subject: `[${TEAM_NAME}] ${displayMonth} 격주 뉴스레터`,
@@ -34,21 +38,11 @@ function buildReportSections(report: RawReport): NewsletterSection[] {
   const signals = parseSignalSections(report.signals);
   const bright = compactBullets([signals["긍정 신호"], signals["새로운 기회"]], 4);
   const focus = compactBullets([report.operations], 4);
-  const watching = compactBullets([signals["약한 신호"], signals["리스크"], report.operations], 4);
+  const watching = compactBullets([signals["약한 신호"], signals["리스크"]], 4);
   const next = extractTopItems(report.next);
   const request = compactBullets([report.support, report.request], 3);
 
   return [
-    {
-      id: "summary",
-      eyebrow: "이번 호 한입 요약",
-      title: "요즘 TF는 이런 흐름으로 움직이고 있어요",
-      tone: "sun",
-      body: [buildOneLine(bright, next)],
-      imagePrompt: imagePrompt(
-        `A photorealistic editorial overview photo for a Korean education technology and publishing team newsletter. Show a varied workspace with printed books, digital textbooks, a tablet, a calendar, sticky planning notes, and one laptop partly off to the side under warm natural daylight. Main story: ${buildOneLine(bright, next)}`,
-      ),
-    },
     {
       id: "focus",
       eyebrow: "집중 모드",
@@ -117,6 +111,84 @@ function mergeReportSections(reportSections: NewsletterSection[][]): NewsletterS
       imagePrompt: `${template.imagePrompt} Combined newsletter section content: ${body.join(" ")}`,
     };
   });
+}
+
+const DEDUPLICATION_PRIORITY = ["bright", "focus", "watching", "next", "request"] as const;
+
+function deduplicateNewsletterSections(sections: NewsletterSection[]): NewsletterSection[] {
+  const selected: Array<{ sectionId: string; text: string }> = [];
+  const sectionsById = new Map(sections.map((section) => [section.id, section]));
+
+  for (const sectionId of DEDUPLICATION_PRIORITY) {
+    const section = sectionsById.get(sectionId);
+    if (!section) continue;
+
+    for (const text of section.body) {
+      const duplicateIndex = selected.findIndex((item) => areDuplicateItems(item.text, text));
+      if (duplicateIndex === -1) {
+        selected.push({ sectionId, text });
+        continue;
+      }
+
+      const duplicate = selected[duplicateIndex];
+      if (duplicate.sectionId === sectionId && informationScore(text) > informationScore(duplicate.text)) {
+        selected[duplicateIndex] = { sectionId, text };
+      }
+    }
+  }
+
+  return sections.map((section) => {
+    const body = selected
+      .filter((item) => item.sectionId === section.id)
+      .map((item) => item.text);
+
+    return {
+      ...section,
+      body: body.length ? body : [emptySectionMessage(section.id)],
+    };
+  });
+}
+
+function areDuplicateItems(left: string, right: string): boolean {
+  const normalizedLeft = normalizeDuplicateText(left);
+  const normalizedRight = normalizeDuplicateText(right);
+  if (!normalizedLeft || !normalizedRight) return false;
+  if (normalizedLeft === normalizedRight) return true;
+
+  const shorter = normalizedLeft.length <= normalizedRight.length ? normalizedLeft : normalizedRight;
+  const longer = shorter === normalizedLeft ? normalizedRight : normalizedLeft;
+  if (shorter.length >= 28 && longer.includes(shorter) && shorter.length / longer.length >= 0.72) {
+    return true;
+  }
+
+  return trigramSimilarity(normalizedLeft, normalizedRight) >= 0.86;
+}
+
+function normalizeDuplicateText(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/(?:했습니다|했어요|합니다|해요|됐어요|돼요|이에요|예요|입니다)$/u, "")
+    .replace(/[^0-9a-z가-힣]/giu, "");
+}
+
+function trigramSimilarity(left: string, right: string): number {
+  const leftTrigrams = trigrams(left);
+  const rightTrigrams = trigrams(right);
+  if (!leftTrigrams.size || !rightTrigrams.size) return 0;
+
+  const intersection = [...leftTrigrams].filter((value) => rightTrigrams.has(value)).length;
+  const union = new Set([...leftTrigrams, ...rightTrigrams]).size;
+  return union ? intersection / union : 0;
+}
+
+function trigrams(value: string): Set<string> {
+  if (value.length < 3) return new Set([value]);
+  return new Set(Array.from({ length: value.length - 2 }, (_, index) => value.slice(index, index + 3)));
+}
+
+function informationScore(text: string): number {
+  const anchors = text.match(/\d+(?:[.,/]\d+)*(?:%|원|종|명|건|월|일)?|[A-Za-z][A-Za-z0-9-]*/g)?.length ?? 0;
+  return text.length + anchors * 12;
 }
 
 function emptySectionMessage(sectionId: string): string {
@@ -233,12 +305,37 @@ function extractTopItems(text: string): string[] {
   });
 }
 
-function buildOneLine(bright: string[], next: string[]): string {
-  const lead = bright[0] ?? next[0];
-  if (lead) {
-    return `이번 호에서 먼저 전해드릴 소식이에요. ${lead}`;
+function buildSummarySection(sections: NewsletterSection[]): NewsletterSection | null {
+  const sourceSectionIds = ["bright", "focus", "next"];
+  const items = sourceSectionIds.flatMap((id) => {
+    const section = sections.find((candidate) => candidate.id === id);
+    const item = section?.body
+      .filter(isConcreteSummaryItem)
+      .sort((left, right) => informationScore(right) - informationScore(left))[0];
+    return item ? [item] : [];
+  });
+
+  if (!items.length) {
+    return null;
   }
-  return `${TEAM_NAME}의 최근 2주 진행 상황을 보기 좋게 정리했어요.`;
+
+  return {
+    id: "summary",
+    eyebrow: "이번 호 한입 요약",
+    title: "이번 호 핵심 흐름",
+    tone: "sun",
+    body: items,
+    imagePrompt: imagePrompt(
+      `A photorealistic editorial overview photo for a Korean education technology and publishing team newsletter. Show a varied workspace with printed books, digital textbooks, a tablet, a calendar, sticky planning notes, and one laptop partly off to the side under warm natural daylight. Main stories: ${items.join(" ")}`,
+    ),
+  };
+}
+
+function isConcreteSummaryItem(item: string): boolean {
+  const normalized = item.replace(/\s+/g, " ").trim();
+  if (normalized.length < 8) return false;
+
+  return !/^(?:없음|해당 없음)|이번 (?:보고서|호).*?(?:없(?:습니다|어요)|작성되지 않았습니다)/u.test(normalized);
 }
 
 function toNewsletterSentence(text: string): string {

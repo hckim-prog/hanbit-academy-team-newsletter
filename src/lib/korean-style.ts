@@ -40,6 +40,7 @@ export function normalizeNewsletterSentence(text: string): string {
     .replace(/없어요\s+소식/g, "없는 소식");
 
   const replacements: Array<[RegExp, string]> = [
+    [/하겠습니다$/g, "할 예정이에요"],
     [/했습니다$/g, "했어요"],
     [/합니다$/g, "해요"],
     [/했고$/g, "했어요"],

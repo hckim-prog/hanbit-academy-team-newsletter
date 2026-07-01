@@ -2,7 +2,7 @@ import "server-only";
 
 import { GoogleGenAI } from "@google/genai";
 import OpenAI from "openai";
-import type { ImageAiStatus, Newsletter } from "./types";
+import type { ImageAiProvider, ImageAiStatus, Newsletter } from "./types";
 
 export type ImageResult = {
   newsletter: Newsletter;
@@ -34,55 +34,86 @@ export async function addGeneratedImages(
   ];
 
   const providers: Array<{
-    name: "OpenAI" | "Gemini";
+    name: "openai" | "gemini";
+    label: "OpenAI" | "Gemini";
     generate: (prompt: string, index: number) => Promise<string>;
   }> = [];
   if (geminiApiKey) {
     providers.push({
-      name: "Gemini",
+      name: "gemini",
+      label: "Gemini",
       generate: (prompt) => withTransientRetry(() => generateGeminiImage(prompt, geminiApiKey), 1),
     });
   }
   if (openAiApiKey && !skipOpenAiImagesUntilRestart) {
     providers.push({
-      name: "OpenAI",
+      name: "openai",
+      label: "OpenAI",
       generate: (prompt, index) => generateOpenAiImage(prompt, index, openAiApiKey),
     });
   }
 
   const warnings: string[] = [];
-  for (let providerIndex = 0; providerIndex < providers.length; providerIndex += 1) {
-    const provider = providers[providerIndex];
-    try {
-      const generated = await mapWithConcurrency(targets, 2, async (target, index) => ({
+  const attempts = await mapWithConcurrency(targets, 2, async (target, index) => {
+    for (let providerIndex = 0; providerIndex < providers.length; providerIndex += 1) {
+      const provider = providers[providerIndex];
+      if (provider.name === "openai" && skipOpenAiImagesUntilRestart) continue;
+
+      try {
+        return {
           ...target,
           url: await provider.generate(diversifyPrompt(target.prompt, imageSeed, index), index),
-        }));
-
-      const hero = generated.find((item) => item.kind === "hero");
-      const sections = newsletter.sections.map((section) => {
-        const match = generated.find((item) => item.kind === "section" && item.id === section.id);
-        return match ? { ...section, imageUrl: match.url } : section;
-      });
-
-      return {
-        newsletter: { ...newsletter, heroImageUrl: hero?.url, sections },
-        status: {
-          provider: provider.name === "Gemini" ? "gemini" : "openai",
+          provider: provider.name as Exclude<ImageAiProvider, "curated" | "mixed">,
           fallbackUsed: providerIndex > 0,
-        },
-        warnings,
-      };
-    } catch (error) {
-      if (provider.name === "OpenAI" && isBillingLimitError(error)) {
-        skipOpenAiImagesUntilRestart = true;
+        };
+      } catch (error) {
+        if (provider.name === "openai" && isBillingLimitError(error)) {
+          skipOpenAiImagesUntilRestart = true;
+        }
+        warnings.push(formatImageWarning(provider.label, targetLabel(target, index), error));
+        console.warn(`${provider.label} image fallback`, {
+          target: targetLabel(target, index),
+          ...safeAiError(error),
+        });
       }
-      warnings.push(`${provider.name} 이미지 생성이 원활하지 않아 다음 이미지 방식을 사용했어요.`);
-      console.warn(`${provider.name} image fallback`, safeAiError(error));
     }
-  }
 
-  return fallbackImageResult(newsletter, imageSeed, providers.length > 0, warnings);
+    return {
+      ...target,
+      url: "",
+      provider: "curated" as const,
+      fallbackUsed: providers.length > 0,
+    };
+  });
+
+  const usedPhotos = new Set<string>();
+  const generated = attempts.map((item) => item.provider === "curated"
+    ? {
+        ...item,
+        url: realPhotoUrl(item.prompt, `${item.kind === "hero" ? "hero" : item.id}:${imageSeed}`, usedPhotos),
+      }
+    : item);
+  const hero = generated.find((item) => item.kind === "hero");
+  const sections = newsletter.sections.map((section) => {
+    const match = generated.find((item) => item.kind === "section" && item.id === section.id);
+    return match ? { ...section, imageUrl: match.url } : section;
+  });
+  const providerCounts = generated.reduce<ImageAiStatus["providerCounts"]>((counts, item) => {
+    if (!counts) return counts;
+    counts[item.provider] = (counts[item.provider] ?? 0) + 1;
+    return counts;
+  }, {});
+  const usedProviders = Object.keys(providerCounts ?? {}) as Array<Exclude<ImageAiProvider, "mixed">>;
+
+  return {
+    newsletter: { ...newsletter, heroImageUrl: hero?.url, sections },
+    status: {
+      provider: usedProviders.length === 1 ? usedProviders[0] : "mixed",
+      fallbackUsed: generated.some((item) => item.fallbackUsed),
+      providerCounts,
+    },
+    warnings: [...new Set(warnings)],
+  };
 }
 
 function fallbackImageResult(
@@ -93,9 +124,29 @@ function fallbackImageResult(
 ): ImageResult {
   return {
     newsletter: addFallbackPhotos(newsletter, imageSeed),
-    status: { provider: "curated", fallbackUsed },
+    status: {
+      provider: "curated",
+      fallbackUsed,
+      providerCounts: { curated: newsletter.sections.length + 1 },
+    },
     warnings,
   };
+}
+
+function targetLabel(target: { kind: "hero" } | { kind: "section"; id: string }, index: number) {
+  return target.kind === "hero" ? "대표 이미지" : `${index + 1}번 이미지(${target.id})`;
+}
+
+function formatImageWarning(provider: "OpenAI" | "Gemini", target: string, error: unknown): string {
+  const detail = safeAiError(error);
+  const reason = [
+    detail.status ? `HTTP ${detail.status}` : null,
+    detail.code ? String(detail.code) : null,
+    !detail.status && !detail.code ? detail.message : null,
+  ]
+    .filter(Boolean)
+    .join(" / ");
+  return `${provider} ${target} 생성 실패${reason ? ` (${reason})` : ""}: 다음 이미지 방식을 사용했어요.`;
 }
 
 async function mapWithConcurrency<T, R>(
@@ -226,16 +277,17 @@ async function generateGeminiImage(prompt: string, apiKey: string): Promise<stri
   return `data:${imagePart.inlineData?.mimeType ?? "image/png"};base64,${data}`;
 }
 
-function safeAiError(error: unknown): { name?: string; code?: unknown; status?: unknown } {
+function safeAiError(error: unknown): { name?: string; code?: unknown; status?: unknown; message?: string } {
   if (!error || typeof error !== "object") {
     return {};
   }
 
-  const candidate = error as { name?: string; code?: unknown; status?: unknown };
+  const candidate = error as { name?: string; code?: unknown; status?: unknown; message?: string };
   return {
     name: candidate.name,
     code: candidate.code,
     status: candidate.status,
+    message: candidate.message?.slice(0, 160),
   };
 }
 
