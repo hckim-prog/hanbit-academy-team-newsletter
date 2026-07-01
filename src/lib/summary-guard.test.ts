@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { preserveGroundedSummary } from "./summary-guard";
+import { preserveGroundedSummary, preserveNewsletterHeroTitle } from "./summary-guard";
 import type { NewsletterSection } from "./types";
 
 function section(overrides: Partial<NewsletterSection> = {}): NewsletterSection {
@@ -34,4 +34,13 @@ test("요약이 아닌 단락은 AI 교정 결과를 유지한다", () => {
   const candidate = section({ id: "focus", title: "다듬은 제목" });
 
   assert.equal(preserveGroundedSummary(source, candidate).title, "다듬은 제목");
+});
+
+test("AI가 업무보고 제목을 반환해도 뉴스레터 히어로 제목을 보존한다", () => {
+  const sourceTitle = "디콘전TF 소식이 도착했어요";
+
+  assert.equal(
+    preserveNewsletterHeroTitle(sourceTitle, "디콘전TF 주간 업무 보고: 디지털 교재 유료 전환 및 AI 데이터 협력"),
+    "디콘전TF 소식이 도착했어요",
+  );
 });

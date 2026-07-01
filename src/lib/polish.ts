@@ -5,7 +5,7 @@ import OpenAI from "openai";
 import type { Newsletter, TextAiProvider, TextAiStatus } from "./types";
 import { normalizeNewsletterSentence, stripSourceListNumbering } from "./korean-style";
 import { assertAnchorsPreserved } from "./polish-validation";
-import { preserveGroundedSummary } from "./summary-guard";
+import { preserveGroundedSummary, preserveNewsletterHeroTitle } from "./summary-guard";
 
 export type PolishStyle = "concise" | "expand" | "natural";
 export type PolishResult = {
@@ -27,7 +27,7 @@ const polishSchema = {
   type: "object",
   additionalProperties: false,
   properties: {
-    heroTitle: { type: "string", description: "이번 호 전체를 아우르는 자연스러운 한국어 제목" },
+    heroTitle: { type: "string", description: "입력과 동일하게 유지하는 뉴스레터 고정 히어로 제목" },
     sections: {
       type: "array",
       description: "입력과 같은 순서, 같은 id, 같은 본문 항목 수를 유지한 섹션",
@@ -172,6 +172,7 @@ function systemInstruction(style: PolishStyle) {
     "<quality>각 항목만 읽어도 누가 또는 무엇이, 어떤 일을, 어느 상태까지 했는지 알 수 있는 완결된 한국어 요체 문장으로 씁니다. 비문, 명사형 종결, 조사 오류, 중복 표현, 과도한 수동태를 고칩니다.</quality>",
     "<numbers>목록 머리의 1., 2), ① 같은 표지만 제거합니다. 1차, 2주, 날짜, 수량, 버전처럼 의미 있는 숫자는 반드시 보존합니다.</numbers>",
     "<summary>summary 섹션은 입력에 포함된 실제 업무를 유지합니다. '이번 호에서는', '살펴봅니다' 같은 일반 안내문으로 대체하지 않습니다.</summary>",
+    "<branding>heroTitle은 뉴스레터의 고정 브랜드 문구이므로 입력값을 한 글자도 바꾸지 않습니다.</branding>",
     `<style>${styleInstruction(style)}</style>`,
     "<review>반환 전에 모든 원문 항목이 일대일로 남아 있고 숫자와 날짜가 보존됐는지 스스로 점검합니다. 최종 JSON만 반환합니다.</review>",
   ].join("\n");
@@ -218,7 +219,7 @@ function mergeAndValidatePolishResult(newsletter: Newsletter, text: string, styl
 
   const result: Newsletter = {
     ...newsletter,
-    heroTitle: parsed.heroTitle?.trim() || newsletter.heroTitle,
+    heroTitle: preserveNewsletterHeroTitle(newsletter.heroTitle, parsed.heroTitle?.trim()),
     sections,
     closing: normalizeNewsletterSentence(parsed.closing || newsletter.closing),
   };
